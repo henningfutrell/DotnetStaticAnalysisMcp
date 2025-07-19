@@ -1,0 +1,15 @@
+{
+  "inputs": [],
+  "servers": {
+    "dotnet-static-analysis": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "/path/to/your/MCP.Server/MCP.Server.csproj"
+      ],
+      "env": {}
+    }
+  }
+}
