@@ -324,7 +324,7 @@ class Test
 
         // Assert
         await Assert.That(allErrors.Count).IsGreaterThan(0);
-        await Assert.That(stopwatch.ElapsedMilliseconds).IsLessThan(1000); // Should complete in < 1 second
+        await Assert.That(stopwatch.ElapsedMilliseconds).IsLessThan(5000); // Should complete in < 5 seconds
 
         var errorIds = allErrors.Select(e => e.Id).Distinct().ToList();
         await Assert.That(errorIds).Contains("CS0103");

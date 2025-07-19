@@ -185,7 +185,8 @@ namespace TestNamespace
         TestSetup.InitializeMSBuild();
         
         // This test passes if no exception is thrown
-        await Assert.That(1).IsEqualTo(1);
+        var initialized = TestSetup.IsInitialized();
+        await Assert.That(initialized).IsTrue();
         
         Console.WriteLine("MSBuild initialization completed");
     }
@@ -220,8 +221,8 @@ namespace TestNamespace
                 Console.WriteLine("Solution loading failed (this may be expected in test environment)");
             }
             
-            // Test passes regardless of result
-            await Assert.That(1).IsEqualTo(1);
+            // Test passes regardless of result - service was created successfully
+            await Assert.That(service).IsNotNull();
         }
         finally
         {

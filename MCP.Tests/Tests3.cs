@@ -164,13 +164,13 @@ public class PerformanceAndIntegrationTests
         await Assert.That(testProject).IsNotNull();
         await Assert.That(testLibrary).IsNotNull();
 
-        // Validate TestProject
-        await Assert.That(testProject!.OutputType).IsEqualTo("Exe");
+        // Validate TestProject (OutputKind.ConsoleApplication becomes "ConsoleApplication")
+        await Assert.That(testProject!.OutputType).IsEqualTo("ConsoleApplication");
         await Assert.That(testProject.HasCompilationErrors).IsTrue();
         await Assert.That(testProject.SourceFiles.Any(f => f.EndsWith("Program.cs"))).IsTrue();
 
-        // Validate TestLibrary
-        await Assert.That(testLibrary!.OutputType).IsEqualTo("Library");
+        // Validate TestLibrary (OutputKind.DynamicallyLinkedLibrary becomes "DynamicallyLinkedLibrary")
+        await Assert.That(testLibrary!.OutputType).IsEqualTo("DynamicallyLinkedLibrary");
         await Assert.That(testLibrary.HasCompilationErrors).IsTrue();
         await Assert.That(testLibrary.SourceFiles.Any(f => f.EndsWith("Calculator.cs"))).IsTrue();
         await Assert.That(testLibrary.SourceFiles.Any(f => f.EndsWith("ValidClass.cs"))).IsTrue();

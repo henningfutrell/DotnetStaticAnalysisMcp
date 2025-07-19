@@ -84,7 +84,8 @@ public class McpToolsTests
         var firstError = errors[0];
         await Assert.That(firstError.GetProperty("Id").GetString()).IsNotNull();
         await Assert.That(firstError.GetProperty("Message").GetString()).IsNotNull();
-        await Assert.That(firstError.GetProperty("Severity").GetString()).IsNotNull();
+        // Severity is serialized as a number (enum value), so use GetInt32()
+        await Assert.That(firstError.GetProperty("Severity").GetInt32()).IsGreaterThanOrEqualTo(0);
         await Assert.That(firstError.GetProperty("FilePath").GetString()).IsNotNull();
         await Assert.That(firstError.GetProperty("StartLine").GetInt32()).IsGreaterThan(0);
         await Assert.That(firstError.GetProperty("ProjectName").GetString()).IsNotNull();
@@ -136,7 +137,7 @@ public class McpToolsTests
         var projects = solutionInfo.GetProperty("Projects").EnumerateArray().ToList();
         await Assert.That(projects.Count).IsEqualTo(2);
 
-        var projectNames = projects.Select(p => p.GetProperty("Name").GetString()).ToList();
+        var projectNames = projects.Select(p => p.GetProperty("Name").GetString() ?? "").Where(name => !string.IsNullOrEmpty(name)).ToList();
         await Assert.That(projectNames).Contains("TestProject");
         await Assert.That(projectNames).Contains("TestLibrary");
     }

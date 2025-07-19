@@ -10,14 +10,25 @@ namespace MCP.Tests;
 public static class TestSetup
 {
     private static bool _msbuildInitialized = false;
-    private static readonly object _lock = new object();
+    private static readonly System.Threading.Lock _lock = new();
+
+    /// <summary>
+    /// Check if MSBuild has been initialized
+    /// </summary>
+    public static bool IsInitialized()
+    {
+        using (_lock.EnterScope())
+        {
+            return _msbuildInitialized;
+        }
+    }
 
     /// <summary>
     /// Initialize MSBuild for testing
     /// </summary>
     public static void InitializeMSBuild()
     {
-        lock (_lock)
+        using (_lock.EnterScope())
         {
             if (!_msbuildInitialized)
             {
