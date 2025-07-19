@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Logging;
 using MCP.Server.Services;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -11,29 +12,29 @@ namespace MCP.Tests;
 /// </summary>
 public class WorkingTests
 {
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_BasicFunctionality_Works()
     {
         // Arrange
         var service = TestSetup.CreateAnalysisService();
 
         // Act & Assert - Basic service functionality
-        await Assert.That(service).IsNotNull();
+        Assert.NotNull(service);
         
         // Test empty state
         var emptyErrors = await service.GetCompilationErrorsAsync();
-        await Assert.That(emptyErrors).IsNotNull();
-        await Assert.That(emptyErrors.Count).IsEqualTo(0);
+        Assert.NotNull(emptyErrors);
+        Assert.Empty(emptyErrors);
         
         var emptySolution = await service.GetSolutionInfoAsync();
-        await Assert.That(emptySolution).IsNull();
+        Assert.Null(emptySolution);
         
         // Cleanup
         service.Dispose();
     }
 
-    [Test]
-    public async Task RoslynCompilation_DirectTest_FindsErrors()
+    [Fact]
+    public void RoslynCompilation_DirectTest_FindsErrors()
     {
         // This test bypasses MSBuildWorkspace and tests Roslyn directly
         
@@ -80,18 +81,18 @@ namespace TestNamespace
         var diagnostics = compilation.GetDiagnostics();
 
         // Assert
-        await Assert.That(diagnostics.Length).IsGreaterThan(0);
+        Assert.True(diagnostics.Length > 0);
 
         var errorIds = diagnostics.Select(d => d.Id).ToList();
         Console.WriteLine($"Found error IDs: {string.Join(", ", errorIds)}");
 
         // Check for expected errors
-        await Assert.That(errorIds).Contains("CS0103"); // undeclared variable
-        await Assert.That(errorIds).Contains("CS0246"); // unknown type
-        await Assert.That(errorIds).Contains("CS0161"); // not all code paths return
+        Assert.Contains("CS0103", errorIds); // undeclared variable
+        Assert.Contains("CS0246", errorIds); // unknown type
+        Assert.Contains("CS0161", errorIds); // not all code paths return
     }
 
-    [Test]
+    [Fact]
     public async Task DotNetAnalysisTools_WithInvalidPath_ReturnsProperErrorJson()
     {
         // Arrange
@@ -103,9 +104,9 @@ namespace TestNamespace
         var solutionInfoResult = await DotNetAnalysisTools.GetSolutionInfo(service);
 
         // Assert
-        await Assert.That(loadResult).IsNotNull();
-        await Assert.That(errorsResult).IsNotNull();
-        await Assert.That(solutionInfoResult).IsNotNull();
+        Assert.NotNull(loadResult);
+        Assert.NotNull(errorsResult);
+        Assert.NotNull(solutionInfoResult);
 
         // Parse JSON responses
         var loadResponse = JsonSerializer.Deserialize<JsonElement>(loadResult);
@@ -113,32 +114,32 @@ namespace TestNamespace
         var solutionInfoResponse = JsonSerializer.Deserialize<JsonElement>(solutionInfoResult);
 
         // Verify load failure
-        await Assert.That(loadResponse.GetProperty("success").GetBoolean()).IsFalse();
+        Assert.False(loadResponse.GetProperty("success").GetBoolean());
 
         // Verify empty errors (no solution loaded)
-        await Assert.That(errorsResponse.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(errorsResponse.GetProperty("error_count").GetInt32()).IsEqualTo(0);
+        Assert.True(errorsResponse.GetProperty("success").GetBoolean());
+        Assert.Equal(0, errorsResponse.GetProperty("error_count").GetInt32());
 
         // Verify null solution info
-        await Assert.That(solutionInfoResponse.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(solutionInfoResponse.GetProperty("solution_info").ValueKind).IsEqualTo(JsonValueKind.Null);
+        Assert.True(solutionInfoResponse.GetProperty("success").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, solutionInfoResponse.GetProperty("solution_info").ValueKind);
 
         // Cleanup
         service.Dispose();
     }
 
-    [Test]
-    public async Task TestSolutionPath_CanBeFound_AndFileExists()
+    [Fact]
+    public void TestSolutionPath_CanBeFound_AndFileExists()
     {
         // Act
         var solutionExists = TestSetup.VerifyTestSolution();
         
         // Assert
-        await Assert.That(solutionExists).IsTrue();
+        Assert.True(solutionExists);
 
         // Additional verification
         var solutionPath = TestSetup.GetTestSolutionPath();
-        await Assert.That(File.Exists(solutionPath)).IsTrue();
+        Assert.True(File.Exists(solutionPath));
         
         Console.WriteLine($"Test solution found at: {solutionPath}");
         
@@ -146,14 +147,14 @@ namespace TestNamespace
         var programFile = TestSetup.GetTestFilePath("TestProject/Program.cs");
         var calculatorFile = TestSetup.GetTestFilePath("TestLibrary/Calculator.cs");
         
-        await Assert.That(File.Exists(programFile)).IsTrue();
-        await Assert.That(File.Exists(calculatorFile)).IsTrue();
+        Assert.True(File.Exists(programFile));
+        Assert.True(File.Exists(calculatorFile));
         
         Console.WriteLine($"Program.cs found at: {programFile}");
         Console.WriteLine($"Calculator.cs found at: {calculatorFile}");
     }
 
-    [Test]
+    [Fact]
     public async Task TestSolutionFiles_ContainExpectedErrors()
     {
         // Arrange
@@ -165,9 +166,9 @@ namespace TestNamespace
         var calculatorContent = await File.ReadAllTextAsync(calculatorFile);
         
         // Assert - Check that files contain expected error-causing code
-        await Assert.That(programContent).Contains("undeclaredVariable");
-        await Assert.That(programContent).Contains("UnknownType");
-        await Assert.That(calculatorContent).Contains("var x = 5"); // Missing semicolon should be on next line
+        Assert.Contains("undeclaredVariable", programContent);
+        Assert.Contains("UnknownType", programContent);
+        Assert.Contains("var x = 5", calculatorContent); // Missing semicolon should be on next line
         
         Console.WriteLine("Program.cs content preview:");
         Console.WriteLine(programContent.Substring(0, Math.Min(200, programContent.Length)) + "...");
@@ -176,8 +177,8 @@ namespace TestNamespace
         Console.WriteLine(calculatorContent.Substring(0, Math.Min(200, calculatorContent.Length)) + "...");
     }
 
-    [Test]
-    public async Task MSBuildWorkspace_CanBeInitialized()
+    [Fact]
+    public void MSBuildWorkspace_CanBeInitialized()
     {
         // Test if MSBuild can be initialized properly
         
@@ -186,12 +187,12 @@ namespace TestNamespace
         
         // This test passes if no exception is thrown
         var initialized = TestSetup.IsInitialized();
-        await Assert.That(initialized).IsTrue();
+        Assert.True(initialized);
         
         Console.WriteLine("MSBuild initialization completed");
     }
 
-    [Test]
+    [Fact]
     public async Task LoadSolution_WithTestSolution_ReturnsResult()
     {
         // This test attempts to load the solution but doesn't require it to work perfectly
@@ -222,7 +223,7 @@ namespace TestNamespace
             }
             
             // Test passes regardless of result - service was created successfully
-            await Assert.That(service).IsNotNull();
+            Assert.NotNull(service);
         }
         finally
         {

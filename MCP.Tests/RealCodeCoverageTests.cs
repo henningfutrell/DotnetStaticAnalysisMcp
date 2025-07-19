@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using MCP.Server.Models;
 using MCP.Server.Services;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -23,7 +24,7 @@ public class RealCodeCoverageTests
         _logger = loggerFactory.CreateLogger<RoslynAnalysisService>();
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_WithoutSolution_GetCompilationErrors_ReturnsEmpty()
     {
         // This test exercises the REAL RoslynAnalysisService code
@@ -33,11 +34,11 @@ public class RealCodeCoverageTests
         var errors = await service.GetCompilationErrorsAsync();
 
         // Assert
-        await Assert.That(errors).IsNotNull();
-        await Assert.That(errors.Count).IsEqualTo(0);
+        Assert.NotNull(errors);
+        Assert.Empty(errors);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_WithoutSolution_GetSolutionInfo_ReturnsNull()
     {
         // This test exercises the REAL RoslynAnalysisService code
@@ -47,10 +48,10 @@ public class RealCodeCoverageTests
         var solutionInfo = await service.GetSolutionInfoAsync();
 
         // Assert
-        await Assert.That(solutionInfo).IsNull();
+        Assert.Null(solutionInfo);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_WithoutSolution_AnalyzeFile_ReturnsEmpty()
     {
         // This test exercises the REAL RoslynAnalysisService code
@@ -60,11 +61,11 @@ public class RealCodeCoverageTests
         var errors = await service.AnalyzeFileAsync("nonexistent.cs");
 
         // Assert
-        await Assert.That(errors).IsNotNull();
-        await Assert.That(errors.Count).IsEqualTo(0);
+        Assert.NotNull(errors);
+        Assert.Empty(errors);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_GetCodeSuggestions_WithoutSolution_ReturnsEmpty()
     {
         // This test exercises the REAL code suggestions functionality
@@ -74,11 +75,11 @@ public class RealCodeCoverageTests
         var suggestions = await service.GetCodeSuggestionsAsync();
 
         // Assert
-        await Assert.That(suggestions).IsNotNull();
-        await Assert.That(suggestions.Count).IsEqualTo(0);
+        Assert.NotNull(suggestions);
+        Assert.Empty(suggestions);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_GetFileSuggestions_WithoutSolution_ReturnsEmpty()
     {
         // This test exercises the REAL code suggestions functionality
@@ -88,11 +89,11 @@ public class RealCodeCoverageTests
         var suggestions = await service.GetFileSuggestionsAsync("test.cs");
 
         // Assert
-        await Assert.That(suggestions).IsNotNull();
-        await Assert.That(suggestions.Count).IsEqualTo(0);
+        Assert.NotNull(suggestions);
+        Assert.Empty(suggestions);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_LoadInvalidSolution_HandlesGracefully()
     {
         // This test exercises the REAL error handling code
@@ -102,10 +103,10 @@ public class RealCodeCoverageTests
         var result = await service.LoadSolutionAsync("nonexistent.sln");
 
         // Assert - Should handle gracefully without throwing
-        await Assert.That(result).IsFalse();
+        Assert.False(result);
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_GetCompilationErrors_WithRealService_ReturnsValidJson()
     {
         // This test exercises the REAL MCP server service code
@@ -115,15 +116,15 @@ public class RealCodeCoverageTests
         var result = await DotNetAnalysisTools.GetCompilationErrors(analysisService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("error_count").GetInt32()).IsEqualTo(0);
-        await Assert.That(response.GetProperty("warning_count").GetInt32()).IsEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(0, response.GetProperty("error_count").GetInt32());
+        Assert.Equal(0, response.GetProperty("warning_count").GetInt32());
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_GetSolutionInfo_WithRealService_ReturnsValidJson()
     {
         // This test exercises the REAL MCP server service code
@@ -133,14 +134,14 @@ public class RealCodeCoverageTests
         var result = await DotNetAnalysisTools.GetSolutionInfo(analysisService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.TryGetProperty("solution_info", out _)).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.True(response.TryGetProperty("solution_info", out _));
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_AnalyzeFile_WithRealService_ReturnsValidJson()
     {
         // This test exercises the REAL MCP server service code
@@ -150,15 +151,15 @@ public class RealCodeCoverageTests
         var result = await DotNetAnalysisTools.AnalyzeFile(analysisService, "test.cs");
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("file_path").GetString()).IsEqualTo("test.cs");
-        await Assert.That(response.GetProperty("error_count").GetInt32()).IsEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal("test.cs", response.GetProperty("file_path").GetString());
+        Assert.Equal(0, response.GetProperty("error_count").GetInt32());
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_GetCodeSuggestions_WithRealService_ReturnsValidJson()
     {
         // This test exercises the REAL code suggestions MCP tool
@@ -168,15 +169,15 @@ public class RealCodeCoverageTests
         var result = await DotNetAnalysisTools.GetCodeSuggestions(analysisService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("suggestion_count").GetInt32()).IsEqualTo(0);
-        await Assert.That(response.TryGetProperty("categories_analyzed", out _)).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(0, response.GetProperty("suggestion_count").GetInt32());
+        Assert.True(response.TryGetProperty("categories_analyzed", out _));
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_GetFileSuggestions_WithRealService_ReturnsValidJson()
     {
         // This test exercises the REAL code suggestions MCP tool
@@ -186,15 +187,15 @@ public class RealCodeCoverageTests
         var result = await DotNetAnalysisTools.GetFileSuggestions(analysisService, "test.cs");
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("file_path").GetString()).IsEqualTo("test.cs");
-        await Assert.That(response.GetProperty("suggestion_count").GetInt32()).IsEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal("test.cs", response.GetProperty("file_path").GetString());
+        Assert.Equal(0, response.GetProperty("suggestion_count").GetInt32());
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_GetSuggestionCategories_ReturnsValidJson()
     {
         // This test exercises the REAL code suggestions MCP tool
@@ -203,17 +204,17 @@ public class RealCodeCoverageTests
         var result = await DotNetAnalysisTools.GetSuggestionCategories();
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.TryGetProperty("categories", out _)).IsTrue();
-        await Assert.That(response.TryGetProperty("priorities", out _)).IsTrue();
-        await Assert.That(response.TryGetProperty("impacts", out _)).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.True(response.TryGetProperty("categories", out _));
+        Assert.True(response.TryGetProperty("priorities", out _));
+        Assert.True(response.TryGetProperty("impacts", out _));
     }
 
-    [Test]
-    public async Task SuggestionAnalysisOptions_RealInstantiation_WorksCorrectly()
+    [Fact]
+    public void SuggestionAnalysisOptions_RealInstantiation_WorksCorrectly()
     {
         // This test exercises the REAL model classes
         var options = new SuggestionAnalysisOptions();
@@ -224,13 +225,13 @@ public class RealCodeCoverageTests
         options.MaxSuggestions = 50;
 
         // Assert
-        await Assert.That(options.IncludedCategories).Contains(SuggestionCategory.Performance);
-        await Assert.That(options.MinimumPriority).IsEqualTo(SuggestionPriority.High);
-        await Assert.That(options.MaxSuggestions).IsEqualTo(50);
+        Assert.Contains(SuggestionCategory.Performance, options.IncludedCategories);
+        Assert.Equal(SuggestionPriority.High, options.MinimumPriority);
+        Assert.Equal(50, options.MaxSuggestions);
     }
 
-    [Test]
-    public async Task CodeSuggestion_RealInstantiation_WorksCorrectly()
+    [Fact]
+    public void CodeSuggestion_RealInstantiation_WorksCorrectly()
     {
         // This test exercises the REAL model classes
         var suggestion = new CodeSuggestion
@@ -247,14 +248,14 @@ public class RealCodeCoverageTests
         suggestion.CanAutoFix = true;
 
         // Assert
-        await Assert.That(suggestion.Id).IsEqualTo("TEST001");
-        await Assert.That(suggestion.Category).IsEqualTo(SuggestionCategory.Performance);
-        await Assert.That(suggestion.Tags).Contains("performance");
-        await Assert.That(suggestion.CanAutoFix).IsTrue();
+        Assert.Equal("TEST001", suggestion.Id);
+        Assert.Equal(SuggestionCategory.Performance, suggestion.Category);
+        Assert.Contains("performance", suggestion.Tags);
+        Assert.True(suggestion.CanAutoFix);
     }
 
-    [Test]
-    public async Task CompilationError_RealInstantiation_WorksCorrectly()
+    [Fact]
+    public void CompilationError_RealInstantiation_WorksCorrectly()
     {
         // This test exercises the REAL model classes
         var error = new CompilationError
@@ -272,14 +273,14 @@ public class RealCodeCoverageTests
         error.Category = "Compiler";
 
         // Assert
-        await Assert.That(error.Id).IsEqualTo("CS0103");
-        await Assert.That(error.Severity).IsEqualTo(Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
-        await Assert.That(error.FilePath).IsEqualTo("test.cs");
-        await Assert.That(error.StartLine).IsEqualTo(10);
+        Assert.Equal("CS0103", error.Id);
+        Assert.Equal(Microsoft.CodeAnalysis.DiagnosticSeverity.Error, error.Severity);
+        Assert.Equal("test.cs", error.FilePath);
+        Assert.Equal(10, error.StartLine);
     }
 
-    [Test]
-    public async Task SolutionInfo_RealInstantiation_WorksCorrectly()
+    [Fact]
+    public void SolutionInfo_RealInstantiation_WorksCorrectly()
     {
         // This test exercises the REAL model classes
         var solutionInfo = new SolutionInfo
@@ -294,14 +295,14 @@ public class RealCodeCoverageTests
         solutionInfo.TotalErrors = 5;
 
         // Assert
-        await Assert.That(solutionInfo.Name).IsEqualTo("TestSolution");
-        await Assert.That(solutionInfo.HasCompilationErrors).IsTrue();
-        await Assert.That(solutionInfo.TotalErrors).IsEqualTo(5);
-        await Assert.That(solutionInfo.Projects).IsNotNull();
+        Assert.Equal("TestSolution", solutionInfo.Name);
+        Assert.True(solutionInfo.HasCompilationErrors);
+        Assert.Equal(5, solutionInfo.TotalErrors);
+        Assert.NotNull(solutionInfo.Projects);
     }
 
-    [Test]
-    public async Task ProjectInfo_RealInstantiation_WorksCorrectly()
+    [Fact]
+    public void ProjectInfo_RealInstantiation_WorksCorrectly()
     {
         // This test exercises the REAL model classes
         var projectInfo = new ProjectInfo
@@ -316,9 +317,9 @@ public class RealCodeCoverageTests
         projectInfo.ErrorCount = 0;
 
         // Assert
-        await Assert.That(projectInfo.Name).IsEqualTo("TestProject");
-        await Assert.That(projectInfo.OutputType).IsEqualTo("ConsoleApplication");
-        await Assert.That(projectInfo.HasCompilationErrors).IsFalse();
-        await Assert.That(projectInfo.ErrorCount).IsEqualTo(0);
+        Assert.Equal("TestProject", projectInfo.Name);
+        Assert.Equal("ConsoleApplication", projectInfo.OutputType);
+        Assert.False(projectInfo.HasCompilationErrors);
+        Assert.Equal(0, projectInfo.ErrorCount);
     }
 }

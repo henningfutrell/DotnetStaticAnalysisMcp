@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using MCP.Server.Models;
 using MCP.Server.Services;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -22,7 +23,7 @@ public class RoslynAnalysisServiceSuggestionsTests
         _logger = loggerFactory.CreateLogger<RoslynAnalysisService>();
     }
 
-    [Test]
+    [Fact]
     public async Task GetCodeSuggestionsAsync_WithoutLoadedSolution_ReturnsEmptyList()
     {
         // Arrange
@@ -32,14 +33,14 @@ public class RoslynAnalysisServiceSuggestionsTests
         var suggestions = await service.GetCodeSuggestionsAsync();
 
         // Assert
-        await Assert.That(suggestions).IsNotNull();
-        await Assert.That(suggestions.Count).IsEqualTo(0);
+        Assert.NotNull(suggestions);
+        Assert.Empty(suggestions);
 
         // Cleanup
         service.Dispose();
     }
 
-    [Test]
+    [Fact]
     public async Task GetFileSuggestionsAsync_WithoutLoadedSolution_ReturnsEmptyList()
     {
         // Arrange
@@ -49,14 +50,14 @@ public class RoslynAnalysisServiceSuggestionsTests
         var suggestions = await service.GetFileSuggestionsAsync("test.cs");
 
         // Assert
-        await Assert.That(suggestions).IsNotNull();
-        await Assert.That(suggestions.Count).IsEqualTo(0);
+        Assert.NotNull(suggestions);
+        Assert.Empty(suggestions);
 
         // Cleanup
         service.Dispose();
     }
 
-    [Test]
+    [Fact]
     public async Task GetCodeSuggestionsAsync_WithCustomOptions_RespectsConfiguration()
     {
         // Arrange
@@ -74,17 +75,17 @@ public class RoslynAnalysisServiceSuggestionsTests
         var suggestions = await service.GetCodeSuggestionsAsync(options);
 
         // Assert
-        await Assert.That(suggestions).IsNotNull();
-        await Assert.That(suggestions.Count).IsLessThanOrEqualTo(10); // Respects max limit
+        Assert.NotNull(suggestions);
+        Assert.True(suggestions.Count <= 10); // Respects max limit
         
         // Since no solution is loaded, should be empty, but test that options are accepted
-        await Assert.That(suggestions.Count).IsEqualTo(0);
+        Assert.Empty(suggestions);
 
         // Cleanup
         service.Dispose();
     }
 
-    [Test]
+    [Fact]
     public async Task GetFileSuggestionsAsync_WithCustomOptions_RespectsConfiguration()
     {
         // Arrange
@@ -100,34 +101,34 @@ public class RoslynAnalysisServiceSuggestionsTests
         var suggestions = await service.GetFileSuggestionsAsync("nonexistent.cs", options);
 
         // Assert
-        await Assert.That(suggestions).IsNotNull();
-        await Assert.That(suggestions.Count).IsLessThanOrEqualTo(5); // Respects max limit
-        await Assert.That(suggestions.Count).IsEqualTo(0); // No solution loaded
+        Assert.NotNull(suggestions);
+        Assert.True(suggestions.Count <= 5); // Respects max limit
+        Assert.Empty(suggestions); // No solution loaded
 
         // Cleanup
         service.Dispose();
     }
 
-    [Test]
-    public async Task SuggestionAnalysisOptions_DefaultValues_AreReasonable()
+    [Fact]
+    public void SuggestionAnalysisOptions_DefaultValues_AreReasonable()
     {
         // Test that default options are sensible
         var options = new SuggestionAnalysisOptions();
 
-        await Assert.That(options.IncludedCategories.Count).IsGreaterThan(0);
-        await Assert.That(options.IncludedCategories).Contains(SuggestionCategory.Style);
-        await Assert.That(options.IncludedCategories).Contains(SuggestionCategory.Performance);
-        await Assert.That(options.IncludedCategories).Contains(SuggestionCategory.Security);
-        await Assert.That(options.MinimumPriority).IsEqualTo(SuggestionPriority.Low);
-        await Assert.That(options.MaxSuggestions).IsEqualTo(100);
-        await Assert.That(options.IncludeAutoFixable).IsTrue();
-        await Assert.That(options.IncludeManualFix).IsTrue();
-        await Assert.That(options.IncludedAnalyzerIds.Count).IsEqualTo(0);
-        await Assert.That(options.ExcludedAnalyzerIds.Count).IsEqualTo(0);
+        Assert.True(options.IncludedCategories.Count > 0);
+        Assert.Contains(SuggestionCategory.Style, options.IncludedCategories);
+        Assert.Contains(SuggestionCategory.Performance, options.IncludedCategories);
+        Assert.Contains(SuggestionCategory.Security, options.IncludedCategories);
+        Assert.Equal(SuggestionPriority.Low, options.MinimumPriority);
+        Assert.Equal(100, options.MaxSuggestions);
+        Assert.True(options.IncludeAutoFixable);
+        Assert.True(options.IncludeManualFix);
+        Assert.Empty(options.IncludedAnalyzerIds);
+        Assert.Empty(options.ExcludedAnalyzerIds);
     }
 
-    [Test]
-    public async Task SuggestionAnalysisOptions_CanBeModified_WorksCorrectly()
+    [Fact]
+    public void SuggestionAnalysisOptions_CanBeModified_WorksCorrectly()
     {
         // Test that options can be modified after creation
         var options = new SuggestionAnalysisOptions();
@@ -147,44 +148,44 @@ public class RoslynAnalysisServiceSuggestionsTests
         options.ExcludedAnalyzerIds.Add("IDE0001");
 
         // Assert changes
-        await Assert.That(options.IncludedCategories.Count).IsEqualTo(2);
-        await Assert.That(options.IncludedCategories).Contains(SuggestionCategory.Performance);
-        await Assert.That(options.IncludedCategories).Contains(SuggestionCategory.Security);
-        await Assert.That(options.MinimumPriority).IsEqualTo(SuggestionPriority.High);
-        await Assert.That(options.MaxSuggestions).IsEqualTo(50);
-        await Assert.That(options.IncludeAutoFixable).IsFalse();
-        await Assert.That(options.IncludedAnalyzerIds).Contains("CA1822");
-        await Assert.That(options.ExcludedAnalyzerIds).Contains("IDE0001");
+        Assert.Equal(2, options.IncludedCategories.Count);
+        Assert.Contains(SuggestionCategory.Performance, options.IncludedCategories);
+        Assert.Contains(SuggestionCategory.Security, options.IncludedCategories);
+        Assert.Equal(SuggestionPriority.High, options.MinimumPriority);
+        Assert.Equal(50, options.MaxSuggestions);
+        Assert.False(options.IncludeAutoFixable);
+        Assert.Contains("CA1822", options.IncludedAnalyzerIds);
+        Assert.Contains("IDE0001", options.ExcludedAnalyzerIds);
     }
 
-    [Test]
-    public async Task CodeSuggestion_DefaultValues_AreAppropriate()
+    [Fact]
+    public void CodeSuggestion_DefaultValues_AreAppropriate()
     {
         // Test that CodeSuggestion has appropriate default values
         var suggestion = new CodeSuggestion();
 
-        await Assert.That(suggestion.Id).IsEqualTo(string.Empty);
-        await Assert.That(suggestion.Title).IsEqualTo(string.Empty);
-        await Assert.That(suggestion.Description).IsEqualTo(string.Empty);
-        await Assert.That(suggestion.Category).IsEqualTo(SuggestionCategory.Style); // First enum value
-        await Assert.That(suggestion.Priority).IsEqualTo(SuggestionPriority.Low); // First enum value
-        await Assert.That(suggestion.Impact).IsEqualTo(SuggestionImpact.Minimal); // First enum value
-        await Assert.That(suggestion.FilePath).IsEqualTo(string.Empty);
-        await Assert.That(suggestion.StartLine).IsEqualTo(0);
-        await Assert.That(suggestion.StartColumn).IsEqualTo(0);
-        await Assert.That(suggestion.EndLine).IsEqualTo(0);
-        await Assert.That(suggestion.EndColumn).IsEqualTo(0);
-        await Assert.That(suggestion.OriginalCode).IsEqualTo(string.Empty);
-        await Assert.That(suggestion.SuggestedCode).IsNull();
-        await Assert.That(suggestion.Tags).IsNotNull();
-        await Assert.That(suggestion.Tags.Count).IsEqualTo(0);
-        await Assert.That(suggestion.HelpLink).IsNull();
-        await Assert.That(suggestion.ProjectName).IsEqualTo(string.Empty);
-        await Assert.That(suggestion.CanAutoFix).IsFalse();
+        Assert.Equal(string.Empty, suggestion.Id);
+        Assert.Equal(string.Empty, suggestion.Title);
+        Assert.Equal(string.Empty, suggestion.Description);
+        Assert.Equal(SuggestionCategory.Style, suggestion.Category); // First enum value
+        Assert.Equal(SuggestionPriority.Low, suggestion.Priority); // First enum value
+        Assert.Equal(SuggestionImpact.Minimal, suggestion.Impact); // First enum value
+        Assert.Equal(string.Empty, suggestion.FilePath);
+        Assert.Equal(0, suggestion.StartLine);
+        Assert.Equal(0, suggestion.StartColumn);
+        Assert.Equal(0, suggestion.EndLine);
+        Assert.Equal(0, suggestion.EndColumn);
+        Assert.Equal(string.Empty, suggestion.OriginalCode);
+        Assert.Null(suggestion.SuggestedCode);
+        Assert.NotNull(suggestion.Tags);
+        Assert.Empty(suggestion.Tags);
+        Assert.Null(suggestion.HelpLink);
+        Assert.Equal(string.Empty, suggestion.ProjectName);
+        Assert.False(suggestion.CanAutoFix);
     }
 
-    [Test]
-    public async Task CodeSuggestion_CanBeCompared_ForEquality()
+    [Fact]
+    public void CodeSuggestion_CanBeCompared_ForEquality()
     {
         // Test that CodeSuggestion objects can be compared
         var suggestion1 = new CodeSuggestion
@@ -219,64 +220,64 @@ public class RoslynAnalysisServiceSuggestionsTests
         var group2Key = new { suggestion2.Id, suggestion2.FilePath, suggestion2.StartLine, suggestion2.StartColumn };
         var group3Key = new { suggestion3.Id, suggestion3.FilePath, suggestion3.StartLine, suggestion3.StartColumn };
 
-        await Assert.That(group1Key.Equals(group2Key)).IsTrue();
-        await Assert.That(group1Key.Equals(group3Key)).IsFalse();
+        Assert.True(group1Key.Equals(group2Key));
+        Assert.False(group1Key.Equals(group3Key));
     }
 
-    [Test]
-    public async Task SuggestionEnums_CanBeConvertedToString_AndParsed()
+    [Fact]
+    public void SuggestionEnums_CanBeConvertedToString_AndParsed()
     {
         // Test enum string conversion and parsing
         
         // Test SuggestionCategory
         var category = SuggestionCategory.Performance;
         var categoryString = category.ToString();
-        await Assert.That(categoryString).IsEqualTo("Performance");
+        Assert.Equal("Performance", categoryString);
         
         var parsedCategory = Enum.Parse<SuggestionCategory>(categoryString);
-        await Assert.That(parsedCategory).IsEqualTo(category);
+        Assert.Equal(category, parsedCategory);
 
         // Test SuggestionPriority
         var priority = SuggestionPriority.High;
         var priorityString = priority.ToString();
-        await Assert.That(priorityString).IsEqualTo("High");
+        Assert.Equal("High", priorityString);
         
         var parsedPriority = Enum.Parse<SuggestionPriority>(priorityString);
-        await Assert.That(parsedPriority).IsEqualTo(priority);
+        Assert.Equal(priority, parsedPriority);
 
         // Test SuggestionImpact
         var impact = SuggestionImpact.Significant;
         var impactString = impact.ToString();
-        await Assert.That(impactString).IsEqualTo("Significant");
+        Assert.Equal("Significant", impactString);
         
         var parsedImpact = Enum.Parse<SuggestionImpact>(impactString);
-        await Assert.That(parsedImpact).IsEqualTo(impact);
+        Assert.Equal(impact, parsedImpact);
     }
 
-    [Test]
-    public async Task SuggestionAnalysisOptions_ExtremeValues_HandleGracefully()
+    [Fact]
+    public void SuggestionAnalysisOptions_ExtremeValues_HandleGracefully()
     {
         // Test edge cases and extreme values
         
         // Test with zero max suggestions
         var zeroMaxOptions = new SuggestionAnalysisOptions { MaxSuggestions = 0 };
-        await Assert.That(zeroMaxOptions.MaxSuggestions).IsEqualTo(0);
+        Assert.Equal(0, zeroMaxOptions.MaxSuggestions);
 
         // Test with very large max suggestions
         var largeMaxOptions = new SuggestionAnalysisOptions { MaxSuggestions = int.MaxValue };
-        await Assert.That(largeMaxOptions.MaxSuggestions).IsEqualTo(int.MaxValue);
+        Assert.Equal(int.MaxValue, largeMaxOptions.MaxSuggestions);
 
         // Test with all categories excluded
         var noCategoriesOptions = new SuggestionAnalysisOptions();
         noCategoriesOptions.IncludedCategories.Clear();
-        await Assert.That(noCategoriesOptions.IncludedCategories.Count).IsEqualTo(0);
+        Assert.Empty(noCategoriesOptions.IncludedCategories);
 
         // Test with critical priority only
         var criticalOnlyOptions = new SuggestionAnalysisOptions 
         { 
             MinimumPriority = SuggestionPriority.Critical 
         };
-        await Assert.That(criticalOnlyOptions.MinimumPriority).IsEqualTo(SuggestionPriority.Critical);
+        Assert.Equal(SuggestionPriority.Critical, criticalOnlyOptions.MinimumPriority);
 
         // Test with both auto-fix options disabled
         var noFixOptions = new SuggestionAnalysisOptions
@@ -284,11 +285,11 @@ public class RoslynAnalysisServiceSuggestionsTests
             IncludeAutoFixable = false,
             IncludeManualFix = false
         };
-        await Assert.That(noFixOptions.IncludeAutoFixable).IsFalse();
-        await Assert.That(noFixOptions.IncludeManualFix).IsFalse();
+        Assert.False(noFixOptions.IncludeAutoFixable);
+        Assert.False(noFixOptions.IncludeManualFix);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_SuggestionMethods_HandleExceptions_Gracefully()
     {
         // Test that suggestion methods handle exceptions gracefully
@@ -298,16 +299,16 @@ public class RoslynAnalysisServiceSuggestionsTests
         {
             // These should not throw exceptions even with invalid inputs
             var suggestions1 = await service.GetCodeSuggestionsAsync(null);
-            await Assert.That(suggestions1).IsNotNull();
+            Assert.NotNull(suggestions1);
 
             var suggestions2 = await service.GetFileSuggestionsAsync(null!);
-            await Assert.That(suggestions2).IsNotNull();
+            Assert.NotNull(suggestions2);
 
             var suggestions3 = await service.GetFileSuggestionsAsync("");
-            await Assert.That(suggestions3).IsNotNull();
+            Assert.NotNull(suggestions3);
 
             var suggestions4 = await service.GetFileSuggestionsAsync("   ");
-            await Assert.That(suggestions4).IsNotNull();
+            Assert.NotNull(suggestions4);
 
             Console.WriteLine("Exception handling tests passed");
         }

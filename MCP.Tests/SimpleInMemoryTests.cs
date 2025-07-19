@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Logging;
 using MCP.Server.Models;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -11,8 +12,8 @@ namespace MCP.Tests;
 /// </summary>
 public class SimpleInMemoryTests
 {
-    [Test]
-    public async Task DirectCompilation_WithErrors_DetectsExpectedErrors()
+    [Fact]
+    public void DirectCompilation_WithErrors_DetectsExpectedErrors()
     {
         // Arrange - Create C# code with known errors
         var sourceCode = @"
@@ -57,23 +58,22 @@ namespace TestProject
         var diagnostics = compilation.GetDiagnostics();
 
         // Assert
-        await Assert.That(diagnostics.Length).IsGreaterThan(0);
+        Assert.True(diagnostics.Length > 0);
 
         var errorIds = diagnostics.Select(d => d.Id).ToList();
         Console.WriteLine($"Found error IDs: {string.Join(", ", errorIds)}");
 
         // Check for expected errors
-        await Assert.That(errorIds).Contains("CS0103"); // undeclared variable
-        await Assert.That(errorIds).Contains("CS0246"); // unknown type
-        await Assert.That(errorIds).Contains("CS0161"); // not all code paths return
+        Assert.Contains("CS0103", errorIds); // undeclared variable
+        Assert.Contains("CS0246", errorIds); // unknown type
+        Assert.Contains("CS0161", errorIds); // not all code paths return
     }
 
-    [Test]
-    public async Task DirectCompilation_SyntaxError_DetectsCS1002()
+    [Fact]
+    public void DirectCompilation_SyntaxError_DetectsCS1002()
     {
         // Arrange - Create C# code with syntax error
         var sourceCode = @"
-using System;
 
 namespace TestProject
 {
@@ -98,20 +98,19 @@ namespace TestProject
         var diagnostics = compilation.GetDiagnostics();
 
         // Assert
-        await Assert.That(diagnostics.Length).IsGreaterThan(0);
+        Assert.True(diagnostics.Length > 0);
 
         var errorIds = diagnostics.Select(d => d.Id).ToList();
         Console.WriteLine($"Syntax error IDs: {string.Join(", ", errorIds)}");
 
-        await Assert.That(errorIds).Contains("CS1002"); // Missing semicolon
+        Assert.Contains("CS1002", errorIds); // Missing semicolon
     }
 
-    [Test]
-    public async Task DirectCompilation_ValidCode_NoErrors()
+    [Fact]
+    public void DirectCompilation_ValidCode_NoErrors()
     {
         // Arrange - Create valid C# code
         var sourceCode = @"
-using System;
 
 namespace TestProject
 {
@@ -151,16 +150,15 @@ namespace TestProject
             .ToArray();
 
         // Assert
-        await Assert.That(diagnostics.Length).IsEqualTo(0);
+        Assert.Empty(diagnostics);
         Console.WriteLine("Valid code compiled without errors");
     }
 
-    [Test]
-    public async Task CompilationErrorsToModels_ConvertsCorrectly()
+    [Fact]
+    public void CompilationErrorsToModels_ConvertsCorrectly()
     {
         // Arrange
         var sourceCode = @"
-using System;
 class Test 
 { 
     void Method() 
@@ -206,24 +204,23 @@ class Test
         }
 
         // Assert
-        await Assert.That(errors.Count).IsGreaterThan(0);
+        Assert.True(errors.Count > 0);
         
         var firstError = errors[0];
-        await Assert.That(firstError.Id).IsEqualTo("CS0103");
-        await Assert.That(firstError.Message).Contains("undeclaredVar");
-        await Assert.That(firstError.StartLine).IsGreaterThan(0);
-        await Assert.That(firstError.StartColumn).IsGreaterThan(0);
-        await Assert.That(firstError.ProjectName).IsEqualTo("InMemoryProject");
+        Assert.Equal("CS0103", firstError.Id);
+        Assert.Contains("undeclaredVar", firstError.Message);
+        Assert.True(firstError.StartLine > 0);
+        Assert.True(firstError.StartColumn > 0);
+        Assert.Equal("InMemoryProject", firstError.ProjectName);
 
         Console.WriteLine($"Converted {errors.Count} diagnostics to CompilationError models");
     }
 
-    [Test]
-    public async Task McpJsonResponse_WithDirectCompilation_ReturnsValidFormat()
+    [Fact]
+    public void McpJsonResponse_WithDirectCompilation_ReturnsValidFormat()
     {
         // Arrange
         var sourceCode = @"
-using System;
 class Test 
 { 
     void Method() 
@@ -266,21 +263,21 @@ class Test
         var json = JsonSerializer.Serialize(response);
 
         // Assert
-        await Assert.That(json).IsNotNull();
+        Assert.NotNull(json);
         
         var parsed = JsonSerializer.Deserialize<JsonElement>(json);
-        await Assert.That(parsed.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(parsed.GetProperty("error_count").GetInt32()).IsGreaterThan(0);
+        Assert.True(parsed.GetProperty("success").GetBoolean());
+        Assert.True(parsed.GetProperty("error_count").GetInt32() > 0);
         
         var errorsArray = parsed.GetProperty("errors").EnumerateArray().ToList();
-        await Assert.That(errorsArray.Count).IsGreaterThan(0);
+        Assert.True(errorsArray.Count > 0);
 
         Console.WriteLine($"Generated MCP JSON response with {errorsArray.Count} errors");
         Console.WriteLine($"JSON length: {json.Length} characters");
     }
 
-    [Test]
-    public async Task MultipleCompilations_Performance_CompletesQuickly()
+    [Fact]
+    public void MultipleCompilations_Performance_CompletesQuickly()
     {
         // Arrange
         var sourceCodes = new[]
@@ -323,12 +320,12 @@ class Test
         stopwatch.Stop();
 
         // Assert
-        await Assert.That(allErrors.Count).IsGreaterThan(0);
-        await Assert.That(stopwatch.ElapsedMilliseconds).IsLessThan(5000); // Should complete in < 5 seconds
+        Assert.True(allErrors.Count > 0);
+        Assert.True(stopwatch.ElapsedMilliseconds < 5000); // Should complete in < 5 seconds
 
         var errorIds = allErrors.Select(e => e.Id).Distinct().ToList();
-        await Assert.That(errorIds).Contains("CS0103");
-        await Assert.That(errorIds).Contains("CS0246");
+        Assert.Contains("CS0103", errorIds);
+        Assert.Contains("CS0246", errorIds);
 
         Console.WriteLine($"Processed {sourceCodes.Length} compilations in {stopwatch.ElapsedMilliseconds}ms");
         Console.WriteLine($"Found {allErrors.Count} total errors with IDs: {string.Join(", ", errorIds)}");

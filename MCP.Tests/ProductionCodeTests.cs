@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MCP.Server.Models;
 using MCP.Server.Services;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -24,17 +25,17 @@ public class ProductionCodeTests
         _logger = loggerFactory.CreateLogger<RoslynAnalysisService>();
     }
 
-    [Test]
-    public async Task RoslynAnalysisService_Constructor_CreatesInstance()
+    [Fact]
+    public void RoslynAnalysisService_Constructor_CreatesInstance()
     {
         // This tests the REAL production constructor
         using var service = new RoslynAnalysisService(_logger);
         
         // Assert the service was created
-        await Assert.That(service).IsNotNull();
+        Assert.NotNull(service);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_GetCompilationErrorsAsync_WithoutSolution_ReturnsEmptyList()
     {
         // This tests the REAL production method
@@ -44,11 +45,11 @@ public class ProductionCodeTests
         var errors = await service.GetCompilationErrorsAsync();
 
         // Assert
-        await Assert.That(errors).IsNotNull();
-        await Assert.That(errors.Count).IsEqualTo(0);
+        Assert.NotNull(errors);
+        Assert.Empty(errors);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_GetSolutionInfoAsync_WithoutSolution_ReturnsNull()
     {
         // This tests the REAL production method
@@ -58,10 +59,10 @@ public class ProductionCodeTests
         var solutionInfo = await service.GetSolutionInfoAsync();
 
         // Assert
-        await Assert.That(solutionInfo).IsNull();
+        Assert.Null(solutionInfo);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_AnalyzeFileAsync_WithoutSolution_ReturnsEmptyList()
     {
         // This tests the REAL production method
@@ -71,11 +72,11 @@ public class ProductionCodeTests
         var errors = await service.AnalyzeFileAsync("test.cs");
 
         // Assert
-        await Assert.That(errors).IsNotNull();
-        await Assert.That(errors.Count).IsEqualTo(0);
+        Assert.NotNull(errors);
+        Assert.Empty(errors);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_LoadSolutionAsync_WithInvalidPath_ReturnsFalse()
     {
         // This tests the REAL production method
@@ -85,10 +86,10 @@ public class ProductionCodeTests
         var result = await service.LoadSolutionAsync("nonexistent.sln");
 
         // Assert
-        await Assert.That(result).IsFalse();
+        Assert.False(result);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_GetCodeSuggestionsAsync_WithoutSolution_ReturnsEmptyList()
     {
         // This tests the REAL production code suggestions method
@@ -98,11 +99,11 @@ public class ProductionCodeTests
         var suggestions = await service.GetCodeSuggestionsAsync();
 
         // Assert
-        await Assert.That(suggestions).IsNotNull();
-        await Assert.That(suggestions.Count).IsEqualTo(0);
+        Assert.NotNull(suggestions);
+        Assert.Empty(suggestions);
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_GetFileSuggestionsAsync_WithoutSolution_ReturnsEmptyList()
     {
         // This tests the REAL production code suggestions method
@@ -112,24 +113,24 @@ public class ProductionCodeTests
         var suggestions = await service.GetFileSuggestionsAsync("test.cs");
 
         // Assert
-        await Assert.That(suggestions).IsNotNull();
-        await Assert.That(suggestions.Count).IsEqualTo(0);
+        Assert.NotNull(suggestions);
+        Assert.Empty(suggestions);
     }
 
-    [Test]
-    public async Task CompilationError_Constructor_CreatesInstance()
+    [Fact]
+    public void CompilationError_Constructor_CreatesInstance()
     {
         // This tests the REAL production model
         var error = new CompilationError();
 
         // Assert
-        await Assert.That(error).IsNotNull();
-        await Assert.That(error.Id).IsEqualTo(string.Empty);
-        await Assert.That(error.Message).IsEqualTo(string.Empty);
+        Assert.NotNull(error);
+        Assert.Equal(string.Empty, error.Id);
+        Assert.Equal(string.Empty, error.Message);
     }
 
-    [Test]
-    public async Task CompilationError_Properties_CanBeSetAndRetrieved()
+    [Fact]
+    public void CompilationError_Properties_CanBeSetAndRetrieved()
     {
         // This tests the REAL production model
         var error = new CompilationError
@@ -144,68 +145,68 @@ public class ProductionCodeTests
         };
 
         // Assert
-        await Assert.That(error.Id).IsEqualTo("CS0103");
-        await Assert.That(error.Message).IsEqualTo("Test error");
-        await Assert.That(error.Severity).IsEqualTo(DiagnosticSeverity.Error);
-        await Assert.That(error.FilePath).IsEqualTo("test.cs");
-        await Assert.That(error.StartLine).IsEqualTo(10);
-        await Assert.That(error.EndLine).IsEqualTo(10);
-        await Assert.That(error.ProjectName).IsEqualTo("TestProject");
+        Assert.Equal("CS0103", error.Id);
+        Assert.Equal("Test error", error.Message);
+        Assert.Equal(DiagnosticSeverity.Error, error.Severity);
+        Assert.Equal("test.cs", error.FilePath);
+        Assert.Equal(10, error.StartLine);
+        Assert.Equal(10, error.EndLine);
+        Assert.Equal("TestProject", error.ProjectName);
     }
 
-    [Test]
-    public async Task SolutionInfo_Constructor_CreatesInstance()
+    [Fact]
+    public void SolutionInfo_Constructor_CreatesInstance()
     {
         // This tests the REAL production model
         var solutionInfo = new MCP.Server.Models.SolutionInfo();
 
         // Assert
-        await Assert.That(solutionInfo).IsNotNull();
-        await Assert.That(solutionInfo.Name).IsEqualTo(string.Empty);
-        await Assert.That(solutionInfo.Projects).IsNotNull();
-        await Assert.That(solutionInfo.Projects.Count).IsEqualTo(0);
+        Assert.NotNull(solutionInfo);
+        Assert.Equal(string.Empty, solutionInfo.Name);
+        Assert.NotNull(solutionInfo.Projects);
+        Assert.Empty(solutionInfo.Projects);
     }
 
-    [Test]
-    public async Task ProjectInfo_Constructor_CreatesInstance()
+    [Fact]
+    public void ProjectInfo_Constructor_CreatesInstance()
     {
         // This tests the REAL production model
         var projectInfo = new MCP.Server.Models.ProjectInfo();
 
         // Assert
-        await Assert.That(projectInfo).IsNotNull();
-        await Assert.That(projectInfo.Name).IsEqualTo(string.Empty);
-        await Assert.That(projectInfo.OutputType).IsEqualTo(string.Empty);
+        Assert.NotNull(projectInfo);
+        Assert.Equal(string.Empty, projectInfo.Name);
+        Assert.Equal(string.Empty, projectInfo.OutputType);
     }
 
-    [Test]
-    public async Task CodeSuggestion_Constructor_CreatesInstance()
+    [Fact]
+    public void CodeSuggestion_Constructor_CreatesInstance()
     {
         // This tests the REAL production model
         var suggestion = new CodeSuggestion();
 
         // Assert
-        await Assert.That(suggestion).IsNotNull();
-        await Assert.That(suggestion.Id).IsEqualTo(string.Empty);
-        await Assert.That(suggestion.Title).IsEqualTo(string.Empty);
-        await Assert.That(suggestion.Tags).IsNotNull();
-        await Assert.That(suggestion.Tags.Count).IsEqualTo(0);
+        Assert.NotNull(suggestion);
+        Assert.Equal(string.Empty, suggestion.Id);
+        Assert.Equal(string.Empty, suggestion.Title);
+        Assert.NotNull(suggestion.Tags);
+        Assert.Empty(suggestion.Tags);
     }
 
-    [Test]
-    public async Task SuggestionAnalysisOptions_Constructor_CreatesInstance()
+    [Fact]
+    public void SuggestionAnalysisOptions_Constructor_CreatesInstance()
     {
         // This tests the REAL production model
         var options = new SuggestionAnalysisOptions();
 
         // Assert
-        await Assert.That(options).IsNotNull();
-        await Assert.That(options.IncludedCategories).IsNotNull();
-        await Assert.That(options.IncludedCategories.Count).IsGreaterThan(0);
-        await Assert.That(options.MaxSuggestions).IsEqualTo(100);
+        Assert.NotNull(options);
+        Assert.NotNull(options.IncludedCategories);
+        Assert.True(options.IncludedCategories.Count > 0);
+        Assert.Equal(100, options.MaxSuggestions);
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_GetCompilationErrors_WithRealService_ReturnsValidJson()
     {
         // This tests the REAL production MCP service
@@ -215,14 +216,14 @@ public class ProductionCodeTests
         var result = await DotNetAnalysisTools.GetCompilationErrors(analysisService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("error_count").GetInt32()).IsEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(0, response.GetProperty("error_count").GetInt32());
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_GetSolutionInfo_WithRealService_ReturnsValidJson()
     {
         // This tests the REAL production MCP service
@@ -232,13 +233,13 @@ public class ProductionCodeTests
         var result = await DotNetAnalysisTools.GetSolutionInfo(analysisService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_AnalyzeFile_WithRealService_ReturnsValidJson()
     {
         // This tests the REAL production MCP service
@@ -248,14 +249,14 @@ public class ProductionCodeTests
         var result = await DotNetAnalysisTools.AnalyzeFile(analysisService, "test.cs");
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("file_path").GetString()).IsEqualTo("test.cs");
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal("test.cs", response.GetProperty("file_path").GetString());
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_GetCodeSuggestions_WithRealService_ReturnsValidJson()
     {
         // This tests the REAL production MCP service
@@ -265,14 +266,14 @@ public class ProductionCodeTests
         var result = await DotNetAnalysisTools.GetCodeSuggestions(analysisService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("suggestion_count").GetInt32()).IsEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(0, response.GetProperty("suggestion_count").GetInt32());
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_GetFileSuggestions_WithRealService_ReturnsValidJson()
     {
         // This tests the REAL production MCP service
@@ -282,14 +283,14 @@ public class ProductionCodeTests
         var result = await DotNetAnalysisTools.GetFileSuggestions(analysisService, "test.cs");
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("file_path").GetString()).IsEqualTo("test.cs");
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal("test.cs", response.GetProperty("file_path").GetString());
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_GetSuggestionCategories_ReturnsValidJson()
     {
         // This tests the REAL production MCP service
@@ -298,10 +299,10 @@ public class ProductionCodeTests
         var result = await DotNetAnalysisTools.GetSuggestionCategories();
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.TryGetProperty("categories", out _)).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.True(response.TryGetProperty("categories", out _));
     }
 }

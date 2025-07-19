@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using MCP.Server.Services;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -24,7 +25,7 @@ public class McpToolsTests
         _testFilePath = Path.Combine(testDataPath, "TestProject", "Program.cs");
     }
 
-    [Test]
+    [Fact]
     public async Task LoadSolution_ValidPath_ReturnsSuccessJson()
     {
         // Arrange
@@ -34,14 +35,14 @@ public class McpToolsTests
         var result = await DotNetAnalysisTools.LoadSolution(analysisService, _testSolutionPath);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("message").GetString()).IsEqualTo("Solution loaded successfully");
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal("Solution loaded successfully", response.GetProperty("message").GetString());
     }
 
-    [Test]
+    [Fact]
     public async Task LoadSolution_InvalidPath_ReturnsErrorJson()
     {
         // Arrange
@@ -52,14 +53,14 @@ public class McpToolsTests
         var result = await DotNetAnalysisTools.LoadSolution(analysisService, invalidPath);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsFalse();
-        await Assert.That(response.GetProperty("message").GetString()).IsEqualTo("Failed to load solution");
+        Assert.False(response.GetProperty("success").GetBoolean());
+        Assert.Equal("Failed to load solution", response.GetProperty("message").GetString());
     }
 
-    [Test]
+    [Fact]
     public async Task GetCompilationErrors_WithLoadedSolution_ReturnsErrorsJson()
     {
         // Arrange
@@ -70,28 +71,28 @@ public class McpToolsTests
         var result = await DotNetAnalysisTools.GetCompilationErrors(analysisService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("error_count").GetInt32()).IsGreaterThan(0);
-        await Assert.That(response.GetProperty("warning_count").GetInt32()).IsGreaterThanOrEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.True(response.GetProperty("error_count").GetInt32() > 0);
+        Assert.True(response.GetProperty("warning_count").GetInt32() >= 0);
 
         var errors = response.GetProperty("errors").EnumerateArray().ToList();
-        await Assert.That(errors.Count).IsGreaterThan(0);
+        Assert.True(errors.Count > 0);
 
         // Check first error structure
         var firstError = errors[0];
-        await Assert.That(firstError.GetProperty("Id").GetString()).IsNotNull();
-        await Assert.That(firstError.GetProperty("Message").GetString()).IsNotNull();
+        Assert.NotNull(firstError.GetProperty("Id").GetString());
+        Assert.NotNull(firstError.GetProperty("Message").GetString());
         // Severity is serialized as a number (enum value), so use GetInt32()
-        await Assert.That(firstError.GetProperty("Severity").GetInt32()).IsGreaterThanOrEqualTo(0);
-        await Assert.That(firstError.GetProperty("FilePath").GetString()).IsNotNull();
-        await Assert.That(firstError.GetProperty("StartLine").GetInt32()).IsGreaterThan(0);
-        await Assert.That(firstError.GetProperty("ProjectName").GetString()).IsNotNull();
+        Assert.True(firstError.GetProperty("Severity").GetInt32() >= 0);
+        Assert.NotNull(firstError.GetProperty("FilePath").GetString());
+        Assert.True(firstError.GetProperty("StartLine").GetInt32() > 0);
+        Assert.NotNull(firstError.GetProperty("ProjectName").GetString());
     }
 
-    [Test]
+    [Fact]
     public async Task GetCompilationErrors_WithoutLoadedSolution_ReturnsEmptyErrorsJson()
     {
         // Arrange
@@ -101,18 +102,18 @@ public class McpToolsTests
         var result = await DotNetAnalysisTools.GetCompilationErrors(analysisService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("error_count").GetInt32()).IsEqualTo(0);
-        await Assert.That(response.GetProperty("warning_count").GetInt32()).IsEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(0, response.GetProperty("error_count").GetInt32());
+        Assert.Equal(0, response.GetProperty("warning_count").GetInt32());
 
         var errors = response.GetProperty("errors").EnumerateArray().ToList();
-        await Assert.That(errors.Count).IsEqualTo(0);
+        Assert.Empty(errors);
     }
 
-    [Test]
+    [Fact]
     public async Task GetSolutionInfo_WithLoadedSolution_ReturnsSolutionInfoJson()
     {
         // Arrange
@@ -123,26 +124,26 @@ public class McpToolsTests
         var result = await DotNetAnalysisTools.GetSolutionInfo(analysisService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
 
         var solutionInfo = response.GetProperty("solution_info");
-        await Assert.That(solutionInfo.GetProperty("Name").GetString()).IsEqualTo("TestSolution");
-        await Assert.That(solutionInfo.GetProperty("FilePath").GetString()).Contains("TestSolution.sln");
-        await Assert.That(solutionInfo.GetProperty("HasCompilationErrors").GetBoolean()).IsTrue();
-        await Assert.That(solutionInfo.GetProperty("TotalErrors").GetInt32()).IsGreaterThan(0);
+        Assert.Equal("TestSolution", solutionInfo.GetProperty("Name").GetString());
+        Assert.Contains("TestSolution.sln", solutionInfo.GetProperty("FilePath").GetString());
+        Assert.True(solutionInfo.GetProperty("HasCompilationErrors").GetBoolean());
+        Assert.True(solutionInfo.GetProperty("TotalErrors").GetInt32() > 0);
 
         var projects = solutionInfo.GetProperty("Projects").EnumerateArray().ToList();
-        await Assert.That(projects.Count).IsEqualTo(2);
+        Assert.Equal(2, projects.Count);
 
         var projectNames = projects.Select(p => p.GetProperty("Name").GetString() ?? "").Where(name => !string.IsNullOrEmpty(name)).ToList();
-        await Assert.That(projectNames).Contains("TestProject");
-        await Assert.That(projectNames).Contains("TestLibrary");
+        Assert.Contains("TestProject", projectNames);
+        Assert.Contains("TestLibrary", projectNames);
     }
 
-    [Test]
+    [Fact]
     public async Task GetSolutionInfo_WithoutLoadedSolution_ReturnsNullSolutionInfoJson()
     {
         // Arrange
@@ -152,14 +153,14 @@ public class McpToolsTests
         var result = await DotNetAnalysisTools.GetSolutionInfo(analysisService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("solution_info").ValueKind).IsEqualTo(JsonValueKind.Null);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, response.GetProperty("solution_info").ValueKind);
     }
 
-    [Test]
+    [Fact]
     public async Task AnalyzeFile_ValidFile_ReturnsFileAnalysisJson()
     {
         // Arrange
@@ -170,24 +171,24 @@ public class McpToolsTests
         var result = await DotNetAnalysisTools.AnalyzeFile(analysisService, _testFilePath);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("file_path").GetString()).IsEqualTo(_testFilePath);
-        await Assert.That(response.GetProperty("error_count").GetInt32()).IsGreaterThan(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(response.GetProperty("file_path").GetString(), _testFilePath);
+        Assert.True(response.GetProperty("error_count").GetInt32() > 0);
 
         var errors = response.GetProperty("errors").EnumerateArray().ToList();
-        await Assert.That(errors.Count).IsGreaterThan(0);
+        Assert.True(errors.Count > 0);
 
         // All errors should be from the specified file
         foreach (var error in errors)
         {
-            await Assert.That(error.GetProperty("FilePath").GetString()).Contains("Program.cs");
+            Assert.Contains("Program.cs", error.GetProperty("FilePath").GetString());
         }
     }
 
-    [Test]
+    [Fact]
     public async Task AnalyzeFile_FileNotInSolution_ReturnsEmptyAnalysisJson()
     {
         // Arrange
@@ -199,15 +200,15 @@ public class McpToolsTests
         var result = await DotNetAnalysisTools.AnalyzeFile(analysisService, nonExistentFile);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("file_path").GetString()).IsEqualTo(nonExistentFile);
-        await Assert.That(response.GetProperty("error_count").GetInt32()).IsEqualTo(0);
-        await Assert.That(response.GetProperty("warning_count").GetInt32()).IsEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(response.GetProperty("file_path").GetString(), nonExistentFile);
+        Assert.Equal(0, response.GetProperty("error_count").GetInt32());
+        Assert.Equal(0, response.GetProperty("warning_count").GetInt32());
 
         var errors = response.GetProperty("errors").EnumerateArray().ToList();
-        await Assert.That(errors.Count).IsEqualTo(0);
+        Assert.Empty(errors);
     }
 }

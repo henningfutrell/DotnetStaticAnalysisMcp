@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using MCP.Server.Services;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -22,7 +23,7 @@ public class RealSolutionCoverageTests
         _logger = loggerFactory.CreateLogger<RoslynAnalysisService>();
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_LoadActualSolution_ExercisesProductionCode()
     {
         // This test exercises the REAL production code by loading the actual MCP solution
@@ -39,11 +40,11 @@ public class RealSolutionCoverageTests
             // Even if it fails due to MSBuild issues, we've exercised the production code
             // Assert that the method was called and returned a boolean
             // result is a bool, so just check it's a valid boolean value
-            await Assert.That(result == true || result == false).IsTrue();
+            Assert.True(result == true || result == false);
             
             // Try to get compilation errors - this exercises more production code
             var errors = await service.GetCompilationErrorsAsync();
-            await Assert.That(errors).IsNotNull();
+            Assert.NotNull(errors);
             
             // Try to get solution info - this exercises even more production code
             var solutionInfo = await service.GetSolutionInfoAsync();
@@ -51,25 +52,25 @@ public class RealSolutionCoverageTests
             
             // Try to analyze a file - this exercises file analysis code
             var fileErrors = await service.AnalyzeFileAsync("Program.cs");
-            await Assert.That(fileErrors).IsNotNull();
+            Assert.NotNull(fileErrors);
             
             // Try to get code suggestions - this exercises the suggestions code
             var suggestions = await service.GetCodeSuggestionsAsync();
-            await Assert.That(suggestions).IsNotNull();
+            Assert.NotNull(suggestions);
             
             // Try to get file suggestions - this exercises more suggestions code
             var fileSuggestions = await service.GetFileSuggestionsAsync("Program.cs");
-            await Assert.That(fileSuggestions).IsNotNull();
+            Assert.NotNull(fileSuggestions);
         }
         else
         {
             // If solution file doesn't exist, still exercise the production code
             var result = await service.LoadSolutionAsync("nonexistent.sln");
-            await Assert.That(result).IsFalse();
+            Assert.False(result);
         }
     }
 
-    [Test]
+    [Fact]
     public async Task McpServerService_WithRealService_ExercisesAllProductionMethods()
     {
         // This test exercises ALL the MCP server production methods
@@ -77,48 +78,48 @@ public class RealSolutionCoverageTests
 
         // Exercise GetCompilationErrors
         var errorsResult = await DotNetAnalysisTools.GetCompilationErrors(analysisService);
-        await Assert.That(errorsResult).IsNotNull();
+        Assert.NotNull(errorsResult);
         
         var errorsResponse = JsonSerializer.Deserialize<JsonElement>(errorsResult);
-        await Assert.That(errorsResponse.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(errorsResponse.GetProperty("success").GetBoolean());
 
         // Exercise GetSolutionInfo
         var solutionResult = await DotNetAnalysisTools.GetSolutionInfo(analysisService);
-        await Assert.That(solutionResult).IsNotNull();
+        Assert.NotNull(solutionResult);
         
         var solutionResponse = JsonSerializer.Deserialize<JsonElement>(solutionResult);
-        await Assert.That(solutionResponse.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(solutionResponse.GetProperty("success").GetBoolean());
 
         // Exercise AnalyzeFile
         var fileResult = await DotNetAnalysisTools.AnalyzeFile(analysisService, "test.cs");
-        await Assert.That(fileResult).IsNotNull();
+        Assert.NotNull(fileResult);
         
         var fileResponse = JsonSerializer.Deserialize<JsonElement>(fileResult);
-        await Assert.That(fileResponse.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(fileResponse.GetProperty("success").GetBoolean());
 
         // Exercise GetCodeSuggestions
         var suggestionsResult = await DotNetAnalysisTools.GetCodeSuggestions(analysisService);
-        await Assert.That(suggestionsResult).IsNotNull();
+        Assert.NotNull(suggestionsResult);
         
         var suggestionsResponse = JsonSerializer.Deserialize<JsonElement>(suggestionsResult);
-        await Assert.That(suggestionsResponse.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(suggestionsResponse.GetProperty("success").GetBoolean());
 
         // Exercise GetFileSuggestions
         var fileSuggestionsResult = await DotNetAnalysisTools.GetFileSuggestions(analysisService, "test.cs");
-        await Assert.That(fileSuggestionsResult).IsNotNull();
+        Assert.NotNull(fileSuggestionsResult);
         
         var fileSuggestionsResponse = JsonSerializer.Deserialize<JsonElement>(fileSuggestionsResult);
-        await Assert.That(fileSuggestionsResponse.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(fileSuggestionsResponse.GetProperty("success").GetBoolean());
 
         // Exercise GetSuggestionCategories (static method)
         var categoriesResult = await DotNetAnalysisTools.GetSuggestionCategories();
-        await Assert.That(categoriesResult).IsNotNull();
+        Assert.NotNull(categoriesResult);
         
         var categoriesResponse = JsonSerializer.Deserialize<JsonElement>(categoriesResult);
-        await Assert.That(categoriesResponse.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(categoriesResponse.GetProperty("success").GetBoolean());
     }
 
-    [Test]
+    [Fact]
     public async Task RoslynAnalysisService_ExerciseAllPublicMethods_MaximizeCoverage()
     {
         // This test calls every public method to maximize coverage
@@ -126,19 +127,19 @@ public class RealSolutionCoverageTests
 
         // Test all the basic methods
         var errors1 = await service.GetCompilationErrorsAsync();
-        await Assert.That(errors1).IsNotNull();
+        Assert.NotNull(errors1);
 
         var solutionInfo1 = await service.GetSolutionInfoAsync();
         // Can be null, that's fine
 
         var fileErrors1 = await service.AnalyzeFileAsync("test.cs");
-        await Assert.That(fileErrors1).IsNotNull();
+        Assert.NotNull(fileErrors1);
 
         var suggestions1 = await service.GetCodeSuggestionsAsync();
-        await Assert.That(suggestions1).IsNotNull();
+        Assert.NotNull(suggestions1);
 
         var fileSuggestions1 = await service.GetFileSuggestionsAsync("test.cs");
-        await Assert.That(fileSuggestions1).IsNotNull();
+        Assert.NotNull(fileSuggestions1);
 
         // Test with different parameters
         var suggestions2 = await service.GetCodeSuggestionsAsync(new MCP.Server.Models.SuggestionAnalysisOptions
@@ -146,35 +147,35 @@ public class RealSolutionCoverageTests
             MaxSuggestions = 50,
             MinimumPriority = MCP.Server.Models.SuggestionPriority.High
         });
-        await Assert.That(suggestions2).IsNotNull();
+        Assert.NotNull(suggestions2);
 
         var fileSuggestions2 = await service.GetFileSuggestionsAsync("another.cs", new MCP.Server.Models.SuggestionAnalysisOptions
         {
             MaxSuggestions = 25,
             MinimumPriority = MCP.Server.Models.SuggestionPriority.Medium
         });
-        await Assert.That(fileSuggestions2).IsNotNull();
+        Assert.NotNull(fileSuggestions2);
 
         // Test loading invalid solutions
         var loadResult1 = await service.LoadSolutionAsync("");
-        await Assert.That(loadResult1).IsFalse();
+        Assert.False(loadResult1);
 
         var loadResult2 = await service.LoadSolutionAsync("   ");
-        await Assert.That(loadResult2).IsFalse();
+        Assert.False(loadResult2);
 
         var loadResult3 = await service.LoadSolutionAsync("invalid.sln");
-        await Assert.That(loadResult3).IsFalse();
+        Assert.False(loadResult3);
 
         // Test analyzing invalid files
         var fileErrors2 = await service.AnalyzeFileAsync("");
-        await Assert.That(fileErrors2).IsNotNull();
+        Assert.NotNull(fileErrors2);
 
         var fileErrors3 = await service.AnalyzeFileAsync("nonexistent.cs");
-        await Assert.That(fileErrors3).IsNotNull();
+        Assert.NotNull(fileErrors3);
     }
 
-    [Test]
-    public async Task ProductionModels_ExerciseAllProperties_MaximizeCoverage()
+    [Fact]
+    public void ProductionModels_ExerciseAllProperties_MaximizeCoverage()
     {
         // Exercise all the production model classes to maximize coverage
         
@@ -193,9 +194,9 @@ public class RealSolutionCoverageTests
             Category = "Compiler"
         };
         
-        await Assert.That(error.Id).IsEqualTo("CS0103");
-        await Assert.That(error.Message).IsEqualTo("Test error");
-        await Assert.That(error.Severity).IsEqualTo(Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+        Assert.Equal("CS0103", error.Id);
+        Assert.Equal("Test error", error.Message);
+        Assert.Equal(Microsoft.CodeAnalysis.DiagnosticSeverity.Error, error.Severity);
 
         // Test SolutionInfo
         var solutionInfo = new MCP.Server.Models.SolutionInfo
@@ -208,9 +209,9 @@ public class RealSolutionCoverageTests
             Projects = new List<MCP.Server.Models.ProjectInfo>()
         };
         
-        await Assert.That(solutionInfo.Name).IsEqualTo("TestSolution");
-        await Assert.That(solutionInfo.HasCompilationErrors).IsTrue();
-        await Assert.That(solutionInfo.TotalErrors).IsEqualTo(5);
+        Assert.Equal("TestSolution", solutionInfo.Name);
+        Assert.True(solutionInfo.HasCompilationErrors);
+        Assert.Equal(5, solutionInfo.TotalErrors);
 
         // Test ProjectInfo
         var projectInfo = new MCP.Server.Models.ProjectInfo
@@ -223,9 +224,9 @@ public class RealSolutionCoverageTests
             WarningCount = 2
         };
         
-        await Assert.That(projectInfo.Name).IsEqualTo("TestProject");
-        await Assert.That(projectInfo.OutputType).IsEqualTo("ConsoleApplication");
-        await Assert.That(projectInfo.HasCompilationErrors).IsFalse();
+        Assert.Equal("TestProject", projectInfo.Name);
+        Assert.Equal("ConsoleApplication", projectInfo.OutputType);
+        Assert.False(projectInfo.HasCompilationErrors);
 
         // Test CodeSuggestion
         var suggestion = new MCP.Server.Models.CodeSuggestion
@@ -251,9 +252,9 @@ public class RealSolutionCoverageTests
         suggestion.Tags.Add("Style");
         suggestion.Tags.Add("Modernization");
         
-        await Assert.That(suggestion.Id).IsEqualTo("IDE0090");
-        await Assert.That(suggestion.Category).IsEqualTo(MCP.Server.Models.SuggestionCategory.Modernization);
-        await Assert.That(suggestion.Tags.Count).IsEqualTo(2);
+        Assert.Equal("IDE0090", suggestion.Id);
+        Assert.Equal(MCP.Server.Models.SuggestionCategory.Modernization, suggestion.Category);
+        Assert.Equal(2, suggestion.Tags.Count);
 
         // Test SuggestionAnalysisOptions
         var options = new MCP.Server.Models.SuggestionAnalysisOptions
@@ -271,10 +272,10 @@ public class RealSolutionCoverageTests
         options.IncludedAnalyzerIds.Add("CA1822");
         options.ExcludedAnalyzerIds.Add("IDE0001");
         
-        await Assert.That(options.MaxSuggestions).IsEqualTo(75);
-        await Assert.That(options.MinimumPriority).IsEqualTo(MCP.Server.Models.SuggestionPriority.High);
-        await Assert.That(options.IncludedCategories.Count).IsEqualTo(2);
-        await Assert.That(options.IncludedAnalyzerIds.Count).IsEqualTo(1);
-        await Assert.That(options.ExcludedAnalyzerIds.Count).IsEqualTo(1);
+        Assert.Equal(75, options.MaxSuggestions);
+        Assert.Equal(MCP.Server.Models.SuggestionPriority.High, options.MinimumPriority);
+        Assert.Equal(2, options.IncludedCategories.Count);
+        Assert.Single(options.IncludedAnalyzerIds);
+        Assert.Single(options.ExcludedAnalyzerIds);
     }
 }

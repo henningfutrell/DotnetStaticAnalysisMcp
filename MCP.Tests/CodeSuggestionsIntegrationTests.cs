@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using MCP.Server.Models;
 using MCP.Server.Services;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -23,7 +24,7 @@ public class CodeSuggestionsIntegrationTests
         _logger = loggerFactory.CreateLogger<InMemoryAnalysisService>();
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetCodeSuggestions_WithInMemoryService_ReturnsValidJson()
     {
         // Arrange
@@ -33,16 +34,16 @@ public class CodeSuggestionsIntegrationTests
         var result = await InMemoryMcpTools.GetCodeSuggestions(inMemoryService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("suggestion_count").GetInt32()).IsGreaterThanOrEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.True(response.GetProperty("suggestion_count").GetInt32() >= 0);
         
         // Verify response structure
-        await Assert.That(response.TryGetProperty("categories_analyzed", out _)).IsTrue();
-        await Assert.That(response.TryGetProperty("minimum_priority", out _)).IsTrue();
-        await Assert.That(response.TryGetProperty("suggestions", out _)).IsTrue();
+        Assert.True(response.TryGetProperty("categories_analyzed", out _));
+        Assert.True(response.TryGetProperty("minimum_priority", out _));
+        Assert.True(response.TryGetProperty("suggestions", out _));
         
         var suggestions = response.GetProperty("suggestions").EnumerateArray().ToList();
         
@@ -50,17 +51,17 @@ public class CodeSuggestionsIntegrationTests
         if (suggestions.Count > 0)
         {
             var firstSuggestion = suggestions[0];
-            await Assert.That(firstSuggestion.TryGetProperty("id", out _)).IsTrue();
-            await Assert.That(firstSuggestion.TryGetProperty("title", out _)).IsTrue();
-            await Assert.That(firstSuggestion.TryGetProperty("category", out _)).IsTrue();
-            await Assert.That(firstSuggestion.TryGetProperty("priority", out _)).IsTrue();
-            await Assert.That(firstSuggestion.TryGetProperty("can_auto_fix", out _)).IsTrue();
+            Assert.True(firstSuggestion.TryGetProperty("id", out _));
+            Assert.True(firstSuggestion.TryGetProperty("title", out _));
+            Assert.True(firstSuggestion.TryGetProperty("category", out _));
+            Assert.True(firstSuggestion.TryGetProperty("priority", out _));
+            Assert.True(firstSuggestion.TryGetProperty("can_auto_fix", out _));
         }
 
         Console.WriteLine($"GetCodeSuggestions returned {suggestions.Count} suggestions");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetFileSuggestions_WithValidFile_ReturnsValidJson()
     {
         // Arrange
@@ -70,12 +71,12 @@ public class CodeSuggestionsIntegrationTests
         var result = await InMemoryMcpTools.GetFileSuggestions(inMemoryService, "Program.cs");
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("file_path").GetString()).IsEqualTo("Program.cs");
-        await Assert.That(response.GetProperty("suggestion_count").GetInt32()).IsGreaterThanOrEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal("Program.cs", response.GetProperty("file_path").GetString());
+        Assert.True(response.GetProperty("suggestion_count").GetInt32() >= 0);
         
         var suggestions = response.GetProperty("suggestions").EnumerateArray().ToList();
         
@@ -83,14 +84,14 @@ public class CodeSuggestionsIntegrationTests
         foreach (var suggestion in suggestions)
         {
             // Note: In-memory tests might not have exact file paths, so we check for consistency
-            await Assert.That(suggestion.TryGetProperty("id", out _)).IsTrue();
-            await Assert.That(suggestion.TryGetProperty("category", out _)).IsTrue();
+            Assert.True(suggestion.TryGetProperty("id", out _));
+            Assert.True(suggestion.TryGetProperty("category", out _));
         }
 
         Console.WriteLine($"GetFileSuggestions for Program.cs returned {suggestions.Count} suggestions");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetCodeSuggestions_WithCategoryFilter_FiltersCorrectly()
     {
         // Arrange
@@ -100,22 +101,22 @@ public class CodeSuggestionsIntegrationTests
         var result = await InMemoryMcpTools.GetCodeSuggestions(inMemoryService, "Performance", "Medium", 50);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
         
         var categoriesAnalyzed = response.GetProperty("categories_analyzed").EnumerateArray()
             .Select(c => c.GetString() ?? "").Where(c => !string.IsNullOrEmpty(c)).ToList();
-        await Assert.That(categoriesAnalyzed).Contains("Performance");
+        Assert.Contains("Performance", categoriesAnalyzed);
         
         var minimumPriority = response.GetProperty("minimum_priority").GetString();
-        await Assert.That(minimumPriority).IsEqualTo("Medium");
+        Assert.Equal("Medium", minimumPriority);
 
         Console.WriteLine($"Filtered suggestions with categories: {string.Join(", ", categoriesAnalyzed)}");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetCodeSuggestions_WithInvalidCategory_HandlesGracefully()
     {
         // Arrange
@@ -125,19 +126,19 @@ public class CodeSuggestionsIntegrationTests
         var result = await InMemoryMcpTools.GetCodeSuggestions(inMemoryService, "InvalidCategory", "Low", 10);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
         
         // Should still work, just with no categories included
         var categoriesAnalyzed = response.GetProperty("categories_analyzed").EnumerateArray().ToList();
-        await Assert.That(categoriesAnalyzed.Count).IsEqualTo(0);
+        Assert.Empty(categoriesAnalyzed);
 
         Console.WriteLine("Invalid category handled gracefully");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetFileSuggestions_WithNonExistentFile_ReturnsEmptyResults()
     {
         // Arrange
@@ -147,20 +148,20 @@ public class CodeSuggestionsIntegrationTests
         var result = await InMemoryMcpTools.GetFileSuggestions(inMemoryService, "NonExistent.cs");
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("suggestion_count").GetInt32()).IsEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(0, response.GetProperty("suggestion_count").GetInt32());
         
         var suggestions = response.GetProperty("suggestions").EnumerateArray().ToList();
-        await Assert.That(suggestions.Count).IsEqualTo(0);
+        Assert.Empty(suggestions);
 
         Console.WriteLine("Non-existent file handled gracefully");
     }
 
-    [Test]
-    public async Task SuggestionAnalysisOptions_EdgeCases_HandleCorrectly()
+    [Fact]
+    public void SuggestionAnalysisOptions_EdgeCases_HandleCorrectly()
     {
         // Test various edge cases for SuggestionAnalysisOptions
         
@@ -171,8 +172,8 @@ public class CodeSuggestionsIntegrationTests
             MaxSuggestions = 0
         };
         
-        await Assert.That(emptyOptions.IncludedCategories.Count).IsEqualTo(0);
-        await Assert.That(emptyOptions.MaxSuggestions).IsEqualTo(0);
+        Assert.Empty(emptyOptions.IncludedCategories);
+        Assert.Equal(0, emptyOptions.MaxSuggestions);
         
         // Test with all categories
         var allCategoriesOptions = new SuggestionAnalysisOptions
@@ -182,8 +183,8 @@ public class CodeSuggestionsIntegrationTests
             MaxSuggestions = 1000
         };
         
-        await Assert.That(allCategoriesOptions.IncludedCategories.Count).IsEqualTo(11); // All categories
-        await Assert.That(allCategoriesOptions.MinimumPriority).IsEqualTo(SuggestionPriority.Critical);
+        Assert.Equal(11, allCategoriesOptions.IncludedCategories.Count); // All categories
+        Assert.Equal(SuggestionPriority.Critical, allCategoriesOptions.MinimumPriority);
         
         // Test auto-fix filtering
         var autoFixOnlyOptions = new SuggestionAnalysisOptions
@@ -192,14 +193,14 @@ public class CodeSuggestionsIntegrationTests
             IncludeManualFix = false
         };
         
-        await Assert.That(autoFixOnlyOptions.IncludeAutoFixable).IsTrue();
-        await Assert.That(autoFixOnlyOptions.IncludeManualFix).IsFalse();
+        Assert.True(autoFixOnlyOptions.IncludeAutoFixable);
+        Assert.False(autoFixOnlyOptions.IncludeManualFix);
 
         Console.WriteLine("Edge case options handled correctly");
     }
 
-    [Test]
-    public async Task CodeSuggestion_AllProperties_CanBeSetAndRetrieved()
+    [Fact]
+    public void CodeSuggestion_AllProperties_CanBeSetAndRetrieved()
     {
         // Test that all properties of CodeSuggestion work correctly
         var suggestion = new CodeSuggestion
@@ -224,57 +225,57 @@ public class CodeSuggestionsIntegrationTests
         };
 
         // Assert all properties
-        await Assert.That(suggestion.Id).IsEqualTo("TEST001");
-        await Assert.That(suggestion.Title).IsEqualTo("Test Suggestion");
-        await Assert.That(suggestion.Description).IsEqualTo("This is a test suggestion");
-        await Assert.That(suggestion.Category).IsEqualTo(SuggestionCategory.Performance);
-        await Assert.That(suggestion.Priority).IsEqualTo(SuggestionPriority.High);
-        await Assert.That(suggestion.Impact).IsEqualTo(SuggestionImpact.Significant);
-        await Assert.That(suggestion.FilePath).IsEqualTo("/path/to/file.cs");
-        await Assert.That(suggestion.StartLine).IsEqualTo(10);
-        await Assert.That(suggestion.StartColumn).IsEqualTo(5);
-        await Assert.That(suggestion.EndLine).IsEqualTo(12);
-        await Assert.That(suggestion.EndColumn).IsEqualTo(15);
-        await Assert.That(suggestion.OriginalCode).IsEqualTo("old code");
-        await Assert.That(suggestion.SuggestedCode).IsEqualTo("new code");
-        await Assert.That(suggestion.CanAutoFix).IsTrue();
-        await Assert.That(suggestion.Tags.Count).IsEqualTo(2);
-        await Assert.That(suggestion.Tags).Contains("performance");
-        await Assert.That(suggestion.Tags).Contains("optimization");
-        await Assert.That(suggestion.HelpLink).IsEqualTo("https://example.com/help");
-        await Assert.That(suggestion.ProjectName).IsEqualTo("TestProject");
+        Assert.Equal("TEST001", suggestion.Id);
+        Assert.Equal("Test Suggestion", suggestion.Title);
+        Assert.Equal("This is a test suggestion", suggestion.Description);
+        Assert.Equal(SuggestionCategory.Performance, suggestion.Category);
+        Assert.Equal(SuggestionPriority.High, suggestion.Priority);
+        Assert.Equal(SuggestionImpact.Significant, suggestion.Impact);
+        Assert.Equal("/path/to/file.cs", suggestion.FilePath);
+        Assert.Equal(10, suggestion.StartLine);
+        Assert.Equal(5, suggestion.StartColumn);
+        Assert.Equal(12, suggestion.EndLine);
+        Assert.Equal(15, suggestion.EndColumn);
+        Assert.Equal("old code", suggestion.OriginalCode);
+        Assert.Equal("new code", suggestion.SuggestedCode);
+        Assert.True(suggestion.CanAutoFix);
+        Assert.Equal(2, suggestion.Tags.Count);
+        Assert.Contains("performance", suggestion.Tags);
+        Assert.Contains("optimization", suggestion.Tags);
+        Assert.Equal("https://example.com/help", suggestion.HelpLink);
+        Assert.Equal("TestProject", suggestion.ProjectName);
 
         Console.WriteLine("All CodeSuggestion properties work correctly");
     }
 
-    [Test]
-    public async Task SuggestionEnums_AllValuesValid_CanBeUsed()
+    [Fact]
+    public void SuggestionEnums_AllValuesValid_CanBeUsed()
     {
         // Test that all enum values are valid and can be used
         
         // Test SuggestionCategory
         var categories = Enum.GetValues<SuggestionCategory>();
-        await Assert.That(categories.Length).IsEqualTo(11);
+        Assert.Equal(11, categories.Length);
         
         foreach (var category in categories)
         {
             var categoryString = category.ToString();
-            await Assert.That(categoryString).IsNotNull();
-            await Assert.That(categoryString.Length).IsGreaterThan(0);
+            Assert.NotNull(categoryString);
+            Assert.True(categoryString.Length > 0);
         }
         
         // Test SuggestionPriority
         var priorities = Enum.GetValues<SuggestionPriority>();
-        await Assert.That(priorities.Length).IsEqualTo(4);
+        Assert.Equal(4, priorities.Length);
         
         // Test SuggestionImpact
         var impacts = Enum.GetValues<SuggestionImpact>();
-        await Assert.That(impacts.Length).IsEqualTo(5);
+        Assert.Equal(5, impacts.Length);
 
         Console.WriteLine($"Validated {categories.Length} categories, {priorities.Length} priorities, {impacts.Length} impacts");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_Performance_SuggestionAnalysis_CompletesQuickly()
     {
         // Test that suggestion analysis completes within reasonable time
@@ -288,11 +289,11 @@ public class CodeSuggestionsIntegrationTests
         stopwatch.Stop();
         
         // Assert
-        await Assert.That(stopwatch.ElapsedMilliseconds).IsLessThan(5000); // Should complete in < 5 seconds
-        await Assert.That(result).IsNotNull();
+        Assert.True(stopwatch.ElapsedMilliseconds < 5000); // Should complete in < 5 seconds
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
 
         Console.WriteLine($"Suggestion analysis completed in {stopwatch.ElapsedMilliseconds}ms");
     }

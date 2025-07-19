@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using MCP.Server.Models;
 using MCP.Server.Services;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -12,8 +13,8 @@ namespace MCP.Tests;
 /// </summary>
 public class CodeSuggestionsTests
 {
-    [Test]
-    public async Task DirectCompilation_WithModernizationOpportunities_DetectsSuggestions()
+    [Fact]
+    public void DirectCompilation_WithModernizationOpportunities_DetectsSuggestions()
     {
         // Arrange - Create C# code with modernization opportunities
         var sourceCode = @"
@@ -56,7 +57,7 @@ namespace TestProject
             .ToList();
 
         // Assert
-        await Assert.That(diagnostics.Count).IsGreaterThanOrEqualTo(0); // May or may not have suggestions
+        Assert.True(diagnostics.Count >= 0); // May or may not have suggestions
         
         // Convert to our suggestion model
         var suggestions = diagnostics.Select(d => new CodeSuggestion
@@ -78,11 +79,11 @@ namespace TestProject
         }
 
         // Test passes if we can process suggestions without errors
-        await Assert.That(suggestions.Count).IsGreaterThanOrEqualTo(0);
+        Assert.True(suggestions.Count >= 0);
     }
 
-    [Test]
-    public async Task SuggestionAnalysisOptions_FiltersByCategory_ReturnsCorrectSuggestions()
+    [Fact]
+    public void SuggestionAnalysisOptions_FiltersByCategory_ReturnsCorrectSuggestions()
     {
         // Arrange
         var suggestions = new List<CodeSuggestion>
@@ -110,47 +111,47 @@ namespace TestProject
             s.Priority >= options.MinimumPriority).ToList();
 
         // Assert
-        await Assert.That(filteredSuggestions.Count).IsEqualTo(2);
-        await Assert.That(filteredSuggestions.All(s => s.Priority >= SuggestionPriority.Medium)).IsTrue();
-        await Assert.That(filteredSuggestions.Any(s => s.Category == SuggestionCategory.Performance)).IsTrue();
-        await Assert.That(filteredSuggestions.Any(s => s.Category == SuggestionCategory.Reliability)).IsTrue();
+        Assert.Equal(2, filteredSuggestions.Count);
+        Assert.True(filteredSuggestions.All(s => s.Priority >= SuggestionPriority.Medium));
+        Assert.Contains(filteredSuggestions, s => s.Category == SuggestionCategory.Performance);
+        Assert.Contains(filteredSuggestions, s => s.Category == SuggestionCategory.Reliability);
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetSuggestionCategories_ReturnsValidJson()
     {
         // Act
         var result = await DotNetAnalysisTools.GetSuggestionCategories();
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
         
         var categories = response.GetProperty("categories").EnumerateArray().ToList();
-        await Assert.That(categories.Count).IsGreaterThan(0);
+        Assert.True(categories.Count > 0);
         
         // Check that all expected categories are present
         var categoryNames = categories.Select(c => c.GetProperty("name").GetString() ?? "").Where(name => !string.IsNullOrEmpty(name)).ToList();
-        await Assert.That(categoryNames).Contains("Style");
-        await Assert.That(categoryNames).Contains("Performance");
-        await Assert.That(categoryNames).Contains("Modernization");
-        await Assert.That(categoryNames).Contains("Security");
+        Assert.Contains("Style", categoryNames);
+        Assert.Contains("Performance", categoryNames);
+        Assert.Contains("Modernization", categoryNames);
+        Assert.Contains("Security", categoryNames);
         
         // Check priorities
         var priorities = response.GetProperty("priorities").EnumerateArray().ToList();
-        await Assert.That(priorities.Count).IsEqualTo(4);
+        Assert.Equal(4, priorities.Count);
         
         // Check impacts
         var impacts = response.GetProperty("impacts").EnumerateArray().ToList();
-        await Assert.That(impacts.Count).IsEqualTo(5);
+        Assert.Equal(5, impacts.Count);
         
         Console.WriteLine($"Found {categories.Count} categories, {priorities.Count} priorities, {impacts.Count} impacts");
     }
 
-    [Test]
-    public async Task CodeSuggestion_Categorization_CategorizesCorrectly()
+    [Fact]
+    public void CodeSuggestion_Categorization_CategorizesCorrectly()
     {
         // Test the categorization logic with our simplified test implementation
         var testCases = new[]
@@ -171,12 +172,12 @@ namespace TestProject
             Console.WriteLine($"{analyzerId} -> {actualCategory} (expected: {expectedCategory})");
 
             // Now that we fixed the categorization logic, all should match expected
-            await Assert.That(actualCategory).IsEqualTo(expectedCategory);
+            Assert.Equal(expectedCategory, actualCategory);
         }
     }
 
-    [Test]
-    public async Task CodeSuggestion_PriorityMapping_MapsCorrectly()
+    [Fact]
+    public void CodeSuggestion_PriorityMapping_MapsCorrectly()
     {
         var testCases = new[]
         {
@@ -189,13 +190,13 @@ namespace TestProject
         foreach (var (severity, expectedPriority) in testCases)
         {
             var actualPriority = MapSeverityToPriority(severity);
-            await Assert.That(actualPriority).IsEqualTo(expectedPriority);
+            Assert.Equal(expectedPriority, actualPriority);
             Console.WriteLine($"{severity} -> {actualPriority}");
         }
     }
 
-    [Test]
-    public async Task CodeSuggestion_JsonSerialization_SerializesCorrectly()
+    [Fact]
+    public void CodeSuggestion_JsonSerialization_SerializesCorrectly()
     {
         // Arrange
         var suggestion = new CodeSuggestion
@@ -224,31 +225,31 @@ namespace TestProject
         var deserialized = JsonSerializer.Deserialize<CodeSuggestion>(json);
 
         // Assert
-        await Assert.That(deserialized).IsNotNull();
-        await Assert.That(deserialized!.Id).IsEqualTo(suggestion.Id);
-        await Assert.That(deserialized.Title).IsEqualTo(suggestion.Title);
-        await Assert.That(deserialized.Category).IsEqualTo(suggestion.Category);
-        await Assert.That(deserialized.Priority).IsEqualTo(suggestion.Priority);
-        await Assert.That(deserialized.CanAutoFix).IsEqualTo(suggestion.CanAutoFix);
+        Assert.NotNull(deserialized);
+        Assert.Equal(suggestion.Id, deserialized!.Id);
+        Assert.Equal(suggestion.Title, deserialized.Title);
+        Assert.Equal(suggestion.Category, deserialized.Category);
+        Assert.Equal(suggestion.Priority, deserialized.Priority);
+        Assert.Equal(suggestion.CanAutoFix, deserialized.CanAutoFix);
         
         Console.WriteLine($"Serialized suggestion: {json.Length} characters");
     }
 
-    [Test]
-    public async Task SuggestionAnalysisOptions_DefaultConfiguration_IsReasonable()
+    [Fact]
+    public void SuggestionAnalysisOptions_DefaultConfiguration_IsReasonable()
     {
         // Arrange
         var options = new SuggestionAnalysisOptions();
 
         // Assert
-        await Assert.That(options.IncludedCategories.Count).IsGreaterThan(0);
-        await Assert.That(options.IncludedCategories).Contains(SuggestionCategory.Style);
-        await Assert.That(options.IncludedCategories).Contains(SuggestionCategory.Performance);
-        await Assert.That(options.IncludedCategories).Contains(SuggestionCategory.Security);
-        await Assert.That(options.MinimumPriority).IsEqualTo(SuggestionPriority.Low);
-        await Assert.That(options.MaxSuggestions).IsEqualTo(100);
-        await Assert.That(options.IncludeAutoFixable).IsTrue();
-        await Assert.That(options.IncludeManualFix).IsTrue();
+        Assert.True(options.IncludedCategories.Count > 0);
+        Assert.Contains(SuggestionCategory.Style, options.IncludedCategories);
+        Assert.Contains(SuggestionCategory.Performance, options.IncludedCategories);
+        Assert.Contains(SuggestionCategory.Security, options.IncludedCategories);
+        Assert.Equal(SuggestionPriority.Low, options.MinimumPriority);
+        Assert.Equal(100, options.MaxSuggestions);
+        Assert.True(options.IncludeAutoFixable);
+        Assert.True(options.IncludeManualFix);
 
         Console.WriteLine($"Default options include {options.IncludedCategories.Count} categories");
         Console.WriteLine($"Categories: {string.Join(", ", options.IncludedCategories)}");

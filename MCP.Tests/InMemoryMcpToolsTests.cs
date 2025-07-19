@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using MCP.Server.Services;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -21,7 +22,7 @@ public class InMemoryMcpToolsTests
         _logger = loggerFactory.CreateLogger<InMemoryAnalysisService>();
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_WithInMemoryService_GetCompilationErrors_ReturnsValidJson()
     {
         // Arrange
@@ -31,28 +32,28 @@ public class InMemoryMcpToolsTests
         var result = await InMemoryMcpTools.GetCompilationErrors(inMemoryService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("error_count").GetInt32()).IsGreaterThan(0);
-        await Assert.That(response.GetProperty("warning_count").GetInt32()).IsGreaterThanOrEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.True(response.GetProperty("error_count").GetInt32() > 0);
+        Assert.True(response.GetProperty("warning_count").GetInt32() >= 0);
 
         var errors = response.GetProperty("errors").EnumerateArray().ToList();
-        await Assert.That(errors.Count).IsGreaterThan(0);
+        Assert.True(errors.Count > 0);
 
         // Verify error structure
         var firstError = errors[0];
-        await Assert.That(firstError.GetProperty("Id").GetString()).IsNotNull();
-        await Assert.That(firstError.GetProperty("Message").GetString()).IsNotNull();
+        Assert.NotNull(firstError.GetProperty("Id").GetString());
+        Assert.NotNull(firstError.GetProperty("Message").GetString());
         // Severity is serialized as a number (enum value), so use GetInt32()
-        await Assert.That(firstError.GetProperty("Severity").GetInt32()).IsGreaterThanOrEqualTo(0);
-        await Assert.That(firstError.GetProperty("ProjectName").GetString()).IsNotNull();
+        Assert.True(firstError.GetProperty("Severity").GetInt32() >= 0);
+        Assert.NotNull(firstError.GetProperty("ProjectName").GetString());
 
         Console.WriteLine($"Found {errors.Count} errors via MCP tools");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_WithInMemoryService_GetSolutionInfo_ReturnsValidJson()
     {
         // Arrange
@@ -62,28 +63,28 @@ public class InMemoryMcpToolsTests
         var result = await InMemoryMcpTools.GetSolutionInfo(inMemoryService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
 
         var solutionInfo = response.GetProperty("solution_info");
-        await Assert.That(solutionInfo.GetProperty("Name").GetString()).IsEqualTo("InMemoryTestSolution");
-        await Assert.That(solutionInfo.GetProperty("HasCompilationErrors").GetBoolean()).IsTrue();
-        await Assert.That(solutionInfo.GetProperty("TotalErrors").GetInt32()).IsGreaterThan(0);
+        Assert.Equal("InMemoryTestSolution", solutionInfo.GetProperty("Name").GetString());
+        Assert.True(solutionInfo.GetProperty("HasCompilationErrors").GetBoolean());
+        Assert.True(solutionInfo.GetProperty("TotalErrors").GetInt32() > 0);
 
         var projects = solutionInfo.GetProperty("Projects").EnumerateArray().ToList();
-        await Assert.That(projects.Count).IsEqualTo(3);
+        Assert.Equal(3, projects.Count);
 
         var projectNames = projects.Select(p => p.GetProperty("Name").GetString() ?? "").Where(name => !string.IsNullOrEmpty(name)).ToList();
-        await Assert.That(projectNames).Contains("TestConsoleProject");
-        await Assert.That(projectNames).Contains("TestLibrary");
-        await Assert.That(projectNames).Contains("ValidProject");
+        Assert.Contains("TestConsoleProject", projectNames);
+        Assert.Contains("TestLibrary", projectNames);
+        Assert.Contains("ValidProject", projectNames);
 
         Console.WriteLine($"Solution has {projects.Count} projects via MCP tools");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_WithInMemoryService_AnalyzeFile_ReturnsValidJson()
     {
         // Arrange
@@ -93,26 +94,26 @@ public class InMemoryMcpToolsTests
         var result = await InMemoryMcpTools.AnalyzeFile(inMemoryService, "Program.cs");
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("file_path").GetString()).IsEqualTo("Program.cs");
-        await Assert.That(response.GetProperty("error_count").GetInt32()).IsGreaterThan(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal("Program.cs", response.GetProperty("file_path").GetString());
+        Assert.True(response.GetProperty("error_count").GetInt32() > 0);
 
         var errors = response.GetProperty("errors").EnumerateArray().ToList();
-        await Assert.That(errors.Count).IsGreaterThan(0);
+        Assert.True(errors.Count > 0);
 
         // All errors should be from Program.cs
         foreach (var error in errors)
         {
-            await Assert.That(error.GetProperty("FilePath").GetString()).IsEqualTo("Program.cs");
+            Assert.Equal("Program.cs", error.GetProperty("FilePath").GetString());
         }
 
         Console.WriteLine($"Program.cs has {errors.Count} errors via MCP tools");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_WithSpecificErrors_DetectsExpectedErrorTypes()
     {
         // Arrange - Create workspace with specific error types
@@ -122,23 +123,23 @@ public class InMemoryMcpToolsTests
         var result = await InMemoryMcpTools.GetCompilationErrors(inMemoryService);
 
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
 
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
 
         var errors = response.GetProperty("errors").EnumerateArray().ToList();
         var errorIds = errors.Select(e => e.GetProperty("Id").GetString() ?? "").Where(id => !string.IsNullOrEmpty(id)).ToList();
 
         // Should contain the specific errors we requested
-        await Assert.That(errorIds).Contains("CS0103");
-        await Assert.That(errorIds).Contains("CS0246");
-        await Assert.That(errorIds).Contains("CS1002");
+        Assert.Contains("CS0103", errorIds);
+        Assert.Contains("CS0246", errorIds);
+        Assert.Contains("CS1002", errorIds);
 
         Console.WriteLine($"Targeted errors found: {string.Join(", ", errorIds)}");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_Performance_InMemoryIsFasterThanFileSystem()
     {
         // This test demonstrates that in-memory approach is faster
@@ -160,16 +161,16 @@ public class InMemoryMcpToolsTests
         var solutionInfoTime = stopwatch.ElapsedMilliseconds;
 
         // Assert - More realistic thresholds for CI environments
-        await Assert.That(creationTime).IsLessThan(5000); // < 5 seconds to create
-        await Assert.That(analysisTime).IsLessThan(10000); // < 10 seconds to analyze
-        await Assert.That(solutionInfoTime).IsLessThan(5000); // < 5 seconds for solution info
+        Assert.True(creationTime < 5000); // < 5 seconds to create
+        Assert.True(analysisTime < 10000); // < 10 seconds to analyze
+        Assert.True(solutionInfoTime < 5000); // < 5 seconds for solution info
 
         // Verify results are valid
         var errorsResponse = JsonSerializer.Deserialize<JsonElement>(errorsResult);
         var solutionResponse = JsonSerializer.Deserialize<JsonElement>(solutionInfoResult);
 
-        await Assert.That(errorsResponse.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(solutionResponse.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(errorsResponse.GetProperty("success").GetBoolean());
+        Assert.True(solutionResponse.GetProperty("success").GetBoolean());
 
         Console.WriteLine($"In-memory performance:");
         Console.WriteLine($"  Creation: {creationTime}ms");

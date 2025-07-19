@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using MCP.Server.Models;
 using MCP.Server.Services;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -22,7 +23,7 @@ public class CodeSuggestionsErrorHandlingTests
         _logger = loggerFactory.CreateLogger<InMemoryAnalysisService>();
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetCodeSuggestions_WithNullService_HandlesGracefully()
     {
         // This test verifies that our MCP tools handle null service gracefully
@@ -35,16 +36,16 @@ public class CodeSuggestionsErrorHandlingTests
         var result = await InMemoryMcpTools.GetCodeSuggestions(service);
         
         // Assert
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response.GetProperty("suggestion_count").GetInt32()).IsEqualTo(0);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(0, response.GetProperty("suggestion_count").GetInt32());
 
         Console.WriteLine("Disposed service handled gracefully");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetCodeSuggestions_WithExtremeParameters_HandlesCorrectly()
     {
         // Test with extreme parameter values
@@ -52,30 +53,30 @@ public class CodeSuggestionsErrorHandlingTests
 
         // Test with very large maxSuggestions
         var result1 = await InMemoryMcpTools.GetCodeSuggestions(service, null, null, int.MaxValue);
-        await Assert.That(result1).IsNotNull();
+        Assert.NotNull(result1);
         
         var response1 = JsonSerializer.Deserialize<JsonElement>(result1);
-        await Assert.That(response1.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response1.GetProperty("success").GetBoolean());
 
         // Test with zero maxSuggestions
         var result2 = await InMemoryMcpTools.GetCodeSuggestions(service, null, null, 0);
-        await Assert.That(result2).IsNotNull();
+        Assert.NotNull(result2);
         
         var response2 = JsonSerializer.Deserialize<JsonElement>(result2);
-        await Assert.That(response2.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(response2.GetProperty("suggestion_count").GetInt32()).IsEqualTo(0);
+        Assert.True(response2.GetProperty("success").GetBoolean());
+        Assert.Equal(0, response2.GetProperty("suggestion_count").GetInt32());
 
         // Test with negative maxSuggestions (should be handled gracefully)
         var result3 = await InMemoryMcpTools.GetCodeSuggestions(service, null, null, -1);
-        await Assert.That(result3).IsNotNull();
+        Assert.NotNull(result3);
         
         var response3 = JsonSerializer.Deserialize<JsonElement>(result3);
-        await Assert.That(response3.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response3.GetProperty("success").GetBoolean());
 
         Console.WriteLine("Extreme parameters handled correctly");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetFileSuggestions_WithInvalidPaths_HandlesGracefully()
     {
         using var service = InMemoryAnalysisService.CreateWithTestProjects(_logger);
@@ -99,11 +100,11 @@ public class CodeSuggestionsErrorHandlingTests
             try
             {
                 var result = await InMemoryMcpTools.GetFileSuggestions(service, invalidPath);
-                await Assert.That(result).IsNotNull();
+                Assert.NotNull(result);
                 
                 var response = JsonSerializer.Deserialize<JsonElement>(result);
-                await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
-                await Assert.That(response.GetProperty("suggestion_count").GetInt32()).IsEqualTo(0);
+                Assert.True(response.GetProperty("success").GetBoolean());
+                Assert.Equal(0, response.GetProperty("suggestion_count").GetInt32());
                 
                 Console.WriteLine($"Invalid path handled: '{invalidPath ?? "null"}'");
             }
@@ -116,7 +117,7 @@ public class CodeSuggestionsErrorHandlingTests
         }
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetCodeSuggestions_WithMalformedCategories_HandlesGracefully()
     {
         using var service = InMemoryAnalysisService.CreateWithTestProjects(_logger);
@@ -144,16 +145,16 @@ public class CodeSuggestionsErrorHandlingTests
         foreach (var categories in malformedCategories)
         {
             var result = await InMemoryMcpTools.GetCodeSuggestions(service, categories);
-            await Assert.That(result).IsNotNull();
+            Assert.NotNull(result);
             
             var response = JsonSerializer.Deserialize<JsonElement>(result);
-            await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+            Assert.True(response.GetProperty("success").GetBoolean());
             
             Console.WriteLine($"Malformed categories handled: '{categories}'");
         }
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_GetCodeSuggestions_WithMalformedPriorities_HandlesGracefully()
     {
         using var service = InMemoryAnalysisService.CreateWithTestProjects(_logger);
@@ -175,17 +176,17 @@ public class CodeSuggestionsErrorHandlingTests
         foreach (var priority in malformedPriorities)
         {
             var result = await InMemoryMcpTools.GetCodeSuggestions(service, null, priority);
-            await Assert.That(result).IsNotNull();
+            Assert.NotNull(result);
             
             var response = JsonSerializer.Deserialize<JsonElement>(result);
-            await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+            Assert.True(response.GetProperty("success").GetBoolean());
             
             Console.WriteLine($"Malformed priority handled: '{priority}'");
         }
     }
 
-    [Test]
-    public async Task CodeSuggestion_WithNullValues_HandlesGracefully()
+    [Fact]
+    public void CodeSuggestion_WithNullValues_HandlesGracefully()
     {
         // Test that CodeSuggestion handles null values appropriately
         var suggestion = new CodeSuggestion
@@ -205,10 +206,10 @@ public class CodeSuggestionsErrorHandlingTests
         try
         {
             var json = JsonSerializer.Serialize(suggestion);
-            await Assert.That(json).IsNotNull();
+            Assert.NotNull(json);
             
             var deserialized = JsonSerializer.Deserialize<CodeSuggestion>(json);
-            await Assert.That(deserialized).IsNotNull();
+            Assert.NotNull(deserialized);
             
             Console.WriteLine("Null values in CodeSuggestion handled gracefully");
         }
@@ -219,8 +220,8 @@ public class CodeSuggestionsErrorHandlingTests
         }
     }
 
-    [Test]
-    public async Task SuggestionAnalysisOptions_WithNullCollections_HandlesGracefully()
+    [Fact]
+    public void SuggestionAnalysisOptions_WithNullCollections_HandlesGracefully()
     {
         // Test that SuggestionAnalysisOptions handles null collections
         var options = new SuggestionAnalysisOptions();
@@ -231,17 +232,17 @@ public class CodeSuggestionsErrorHandlingTests
         options.IncludedAnalyzerIds.Clear();
         options.ExcludedAnalyzerIds.Clear();
 
-        await Assert.That(options.IncludedCategories).IsNotNull();
-        await Assert.That(options.IncludedAnalyzerIds).IsNotNull();
-        await Assert.That(options.ExcludedAnalyzerIds).IsNotNull();
-        await Assert.That(options.IncludedCategories.Count).IsEqualTo(0);
-        await Assert.That(options.IncludedAnalyzerIds.Count).IsEqualTo(0);
-        await Assert.That(options.ExcludedAnalyzerIds.Count).IsEqualTo(0);
+        Assert.NotNull(options.IncludedCategories);
+        Assert.NotNull(options.IncludedAnalyzerIds);
+        Assert.NotNull(options.ExcludedAnalyzerIds);
+        Assert.Empty(options.IncludedCategories);
+        Assert.Empty(options.IncludedAnalyzerIds);
+        Assert.Empty(options.ExcludedAnalyzerIds);
 
         Console.WriteLine("Empty collections handled correctly");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_ConcurrentAccess_HandlesCorrectly()
     {
         // Test concurrent access to suggestion methods
@@ -263,16 +264,16 @@ public class CodeSuggestionsErrorHandlingTests
         // Assert all requests completed successfully
         foreach (var result in results)
         {
-            await Assert.That(result).IsNotNull();
+            Assert.NotNull(result);
             
             var response = JsonSerializer.Deserialize<JsonElement>(result);
-            await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+            Assert.True(response.GetProperty("success").GetBoolean());
         }
 
         Console.WriteLine($"Completed {results.Length} concurrent requests successfully");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_LargeResponseHandling_WorksCorrectly()
     {
         // Test handling of potentially large responses
@@ -280,22 +281,22 @@ public class CodeSuggestionsErrorHandlingTests
 
         // Request maximum suggestions
         var result = await InMemoryMcpTools.GetCodeSuggestions(service, null, null, 10000);
-        await Assert.That(result).IsNotNull();
+        Assert.NotNull(result);
         
         var response = JsonSerializer.Deserialize<JsonElement>(result);
-        await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+        Assert.True(response.GetProperty("success").GetBoolean());
         
         // Verify the response can be parsed even if large
         var suggestions = response.GetProperty("suggestions").EnumerateArray().ToList();
-        await Assert.That(suggestions.Count).IsGreaterThanOrEqualTo(0);
+        Assert.True(suggestions.Count >= 0);
         
         // Test JSON size is reasonable (not too large)
-        await Assert.That(result.Length).IsLessThan(10_000_000); // Less than 10MB
+        Assert.True(result.Length < 10_000_000); // Less than 10MB
 
         Console.WriteLine($"Large response test: {result.Length} characters, {suggestions.Count} suggestions");
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_MemoryPressure_HandlesCorrectly()
     {
         // Test behavior under memory pressure by creating many services
@@ -311,10 +312,10 @@ public class CodeSuggestionsErrorHandlingTests
                 
                 // Get suggestions from each service
                 var result = await InMemoryMcpTools.GetCodeSuggestions(service);
-                await Assert.That(result).IsNotNull();
+                Assert.NotNull(result);
                 
                 var response = JsonSerializer.Deserialize<JsonElement>(result);
-                await Assert.That(response.GetProperty("success").GetBoolean()).IsTrue();
+                Assert.True(response.GetProperty("success").GetBoolean());
             }
 
             Console.WriteLine($"Created and tested {services.Count} services successfully");
@@ -334,7 +335,7 @@ public class CodeSuggestionsErrorHandlingTests
         GC.Collect();
     }
 
-    [Test]
+    [Fact]
     public async Task McpTools_JsonResponseFormat_IsConsistent()
     {
         // Test that JSON responses have consistent format across different scenarios
@@ -349,18 +350,18 @@ public class CodeSuggestionsErrorHandlingTests
 
         foreach (var result in results)
         {
-            await Assert.That(result).IsNotNull();
+            Assert.NotNull(result);
             
             // Verify it's valid JSON
             var response = JsonSerializer.Deserialize<JsonElement>(result);
             
             // All responses should have a success field
-            await Assert.That(response.TryGetProperty("success", out var successProp)).IsTrue();
-            await Assert.That(successProp.ValueKind).IsEqualTo(JsonValueKind.True);
+            Assert.True(response.TryGetProperty("success", out var successProp));
+            Assert.Equal(JsonValueKind.True, successProp.ValueKind);
             
             // Verify JSON is well-formed (no syntax errors)
-            await Assert.That(result.StartsWith("{")).IsTrue();
-            await Assert.That(result.EndsWith("}")).IsTrue();
+            Assert.StartsWith("{", result);
+            Assert.EndsWith("}", result);
         }
 
         Console.WriteLine("All JSON responses have consistent format");

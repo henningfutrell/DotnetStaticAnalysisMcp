@@ -2,6 +2,7 @@
 using MCP.Server.Services;
 using MCP.Server.Models;
 using System.Diagnostics;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -22,7 +23,7 @@ public class PerformanceAndIntegrationTests
         _testSolutionPath = Path.Combine(testDataPath, "TestSolution.sln");
     }
 
-    [Test]
+    [Fact]
     public async Task LoadSolution_Performance_CompletesWithinReasonableTime()
     {
         // Arrange
@@ -34,13 +35,13 @@ public class PerformanceAndIntegrationTests
         stopwatch.Stop();
 
         // Assert
-        await Assert.That(result).IsTrue();
-        await Assert.That(stopwatch.ElapsedMilliseconds).IsLessThan(10000); // Should complete within 10 seconds
+        Assert.True(result);
+        Assert.True(stopwatch.ElapsedMilliseconds < 10000); // Should complete within 10 seconds
 
         Console.WriteLine($"Solution loading took {stopwatch.ElapsedMilliseconds}ms");
     }
 
-    [Test]
+    [Fact]
     public async Task GetCompilationErrors_Performance_CompletesWithinReasonableTime()
     {
         // Arrange
@@ -54,13 +55,13 @@ public class PerformanceAndIntegrationTests
         stopwatch.Stop();
 
         // Assert
-        await Assert.That(errors).IsNotNull();
-        await Assert.That(stopwatch.ElapsedMilliseconds).IsLessThan(5000); // Should complete within 5 seconds
+        Assert.NotNull(errors);
+        Assert.True(stopwatch.ElapsedMilliseconds < 5000); // Should complete within 5 seconds
 
         Console.WriteLine($"Error analysis took {stopwatch.ElapsedMilliseconds}ms for {errors.Count} errors");
     }
 
-    [Test]
+    [Fact]
     public async Task MultipleAnalysisCalls_Performance_SubsequentCallsAreFaster()
     {
         // Arrange
@@ -78,13 +79,13 @@ public class PerformanceAndIntegrationTests
         stopwatch2.Stop();
 
         // Assert
-        await Assert.That(errors1.Count).IsEqualTo(errors2.Count);
-        await Assert.That(stopwatch2.ElapsedMilliseconds).IsLessThanOrEqualTo(stopwatch1.ElapsedMilliseconds);
+        Assert.Equal(errors2.Count, errors1.Count);
+        Assert.True(stopwatch2.ElapsedMilliseconds <= stopwatch1.ElapsedMilliseconds);
 
         Console.WriteLine($"First call: {stopwatch1.ElapsedMilliseconds}ms, Second call: {stopwatch2.ElapsedMilliseconds}ms");
     }
 
-    [Test]
+    [Fact]
     public async Task ErrorDetails_Validation_ContainsExpectedInformation()
     {
         // Arrange
@@ -95,26 +96,26 @@ public class PerformanceAndIntegrationTests
         var errors = await service.GetCompilationErrorsAsync();
 
         // Assert
-        await Assert.That(errors).IsNotNull();
-        await Assert.That(errors.Count).IsGreaterThan(0);
+        Assert.NotNull(errors);
+        Assert.True(errors.Count > 0);
 
         // Validate error structure
         foreach (var error in errors)
         {
-            await Assert.That(error.Id).IsNotNull();
-            await Assert.That(error.Message).IsNotNull();
-            await Assert.That(error.FilePath).IsNotNull();
-            await Assert.That(error.StartLine).IsGreaterThan(0);
-            await Assert.That(error.StartColumn).IsGreaterThan(0);
-            await Assert.That(error.ProjectName).IsNotNull();
+            Assert.NotNull(error.Id);
+            Assert.NotNull(error.Message);
+            Assert.NotNull(error.FilePath);
+            Assert.True(error.StartLine > 0);
+            Assert.True(error.StartColumn > 0);
+            Assert.NotNull(error.ProjectName);
 
             // Validate severity is a known value
             var validSeverities = new[] { "Error", "Warning", "Info", "Hidden" };
-            await Assert.That(validSeverities).Contains(error.Severity.ToString());
+            Assert.Contains(error.Severity.ToString(), validSeverities);
         }
     }
 
-    [Test]
+    [Fact]
     public async Task SpecificErrorTypes_Validation_ContainsExpectedErrors()
     {
         // Arrange
@@ -128,23 +129,23 @@ public class PerformanceAndIntegrationTests
         var errorsByType = errors.GroupBy(e => e.Id).ToDictionary(g => g.Key, g => g.ToList());
 
         // CS0103: The name 'undeclaredVariable' does not exist in the current context
-        await Assert.That(errorsByType.ContainsKey("CS0103")).IsTrue();
+        Assert.Contains("CS0103", errorsByType.Keys);
         var cs0103Errors = errorsByType["CS0103"];
-        await Assert.That(cs0103Errors.Any(e => e.Message.Contains("undeclaredVariable"))).IsTrue();
+        Assert.Contains(cs0103Errors, e => e.Message.Contains("undeclaredVariable"));
 
         // CS0246: The type or namespace name could not be found
-        await Assert.That(errorsByType.ContainsKey("CS0246")).IsTrue();
+        Assert.Contains("CS0246", errorsByType.Keys);
         var cs0246Errors = errorsByType["CS0246"];
-        await Assert.That(cs0246Errors.Any(e => e.Message.Contains("UnknownType"))).IsTrue();
+        Assert.Contains(cs0246Errors, e => e.Message.Contains("UnknownType"));
 
         // CS0161: Not all code paths return a value
-        await Assert.That(errorsByType.ContainsKey("CS0161")).IsTrue();
+        Assert.Contains("CS0161", errorsByType.Keys);
 
         // CS1002: Syntax error
-        await Assert.That(errorsByType.ContainsKey("CS1002")).IsTrue();
+        Assert.Contains("CS1002", errorsByType.Keys);
     }
 
-    [Test]
+    [Fact]
     public async Task ProjectStructure_Validation_CorrectlyIdentifiesProjects()
     {
         // Arrange
@@ -155,28 +156,28 @@ public class PerformanceAndIntegrationTests
         var solutionInfo = await service.GetSolutionInfoAsync();
 
         // Assert
-        await Assert.That(solutionInfo).IsNotNull();
-        await Assert.That(solutionInfo!.Projects.Count).IsEqualTo(2);
+        Assert.NotNull(solutionInfo);
+        Assert.Equal(2, solutionInfo!.Projects.Count);
 
         var testProject = solutionInfo.Projects.FirstOrDefault(p => p.Name == "TestProject");
         var testLibrary = solutionInfo.Projects.FirstOrDefault(p => p.Name == "TestLibrary");
 
-        await Assert.That(testProject).IsNotNull();
-        await Assert.That(testLibrary).IsNotNull();
+        Assert.NotNull(testProject);
+        Assert.NotNull(testLibrary);
 
         // Validate TestProject (OutputKind.ConsoleApplication becomes "ConsoleApplication")
-        await Assert.That(testProject!.OutputType).IsEqualTo("ConsoleApplication");
-        await Assert.That(testProject.HasCompilationErrors).IsTrue();
-        await Assert.That(testProject.SourceFiles.Any(f => f.EndsWith("Program.cs"))).IsTrue();
+        Assert.Equal("ConsoleApplication", testProject!.OutputType);
+        Assert.True(testProject.HasCompilationErrors);
+        Assert.Contains(testProject.SourceFiles, f => f.EndsWith("Program.cs"));
 
         // Validate TestLibrary (OutputKind.DynamicallyLinkedLibrary becomes "DynamicallyLinkedLibrary")
-        await Assert.That(testLibrary!.OutputType).IsEqualTo("DynamicallyLinkedLibrary");
-        await Assert.That(testLibrary.HasCompilationErrors).IsTrue();
-        await Assert.That(testLibrary.SourceFiles.Any(f => f.EndsWith("Calculator.cs"))).IsTrue();
-        await Assert.That(testLibrary.SourceFiles.Any(f => f.EndsWith("ValidClass.cs"))).IsTrue();
+        Assert.Equal("DynamicallyLinkedLibrary", testLibrary!.OutputType);
+        Assert.True(testLibrary.HasCompilationErrors);
+        Assert.Contains(testLibrary.SourceFiles, f => f.EndsWith("Calculator.cs"));
+        Assert.Contains(testLibrary.SourceFiles, f => f.EndsWith("ValidClass.cs"));
     }
 
-    [Test]
+    [Fact]
     public async Task FileAnalysis_Validation_IsolatesErrorsCorrectly()
     {
         // Arrange
@@ -194,19 +195,19 @@ public class PerformanceAndIntegrationTests
 
         // Assert
         // Program.cs should have multiple errors
-        await Assert.That(programErrors.Count).IsGreaterThan(0);
-        await Assert.That(programErrors.All(e => e.FilePath.EndsWith("Program.cs"))).IsTrue();
+        Assert.True(programErrors.Count > 0);
+        Assert.True(programErrors.All(e => e.FilePath.EndsWith("Program.cs")));
 
         // Calculator.cs should have at least one error (syntax error)
-        await Assert.That(calculatorErrors.Count).IsGreaterThan(0);
-        await Assert.That(calculatorErrors.All(e => e.FilePath.EndsWith("Calculator.cs"))).IsTrue();
-        await Assert.That(calculatorErrors.Any(e => e.Id == "CS1002")).IsTrue(); // Missing semicolon
+        Assert.True(calculatorErrors.Count > 0);
+        Assert.True(calculatorErrors.All(e => e.FilePath.EndsWith("Calculator.cs")));
+        Assert.Contains(calculatorErrors, e => e.Id == "CS1002"); // Missing semicolon
 
         // ValidClass.cs should have no errors
-        await Assert.That(validClassErrors.Count).IsEqualTo(0);
+        Assert.Empty(validClassErrors);
     }
 
-    [Test]
+    [Fact]
     public async Task MemoryUsage_Validation_DisposalCleansUpResources()
     {
         // Arrange
@@ -230,7 +231,7 @@ public class PerformanceAndIntegrationTests
         // Assert
         // Memory usage should not have increased dramatically
         var memoryIncrease = finalMemory - initialMemory;
-        await Assert.That(memoryIncrease).IsLessThan(100_000_000); // Less than 100MB increase
+        Assert.True(memoryIncrease < 100_000_000); // Less than 100MB increase
 
         Console.WriteLine($"Memory increase: {memoryIncrease / 1024 / 1024}MB");
     }

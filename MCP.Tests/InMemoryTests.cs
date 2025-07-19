@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using MCP.Server.Services;
 using System.Diagnostics;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -22,23 +23,23 @@ public class InMemoryTests
         _logger = loggerFactory.CreateLogger<InMemoryAnalysisService>();
     }
 
-    [Test]
-    public async Task InMemoryWorkspace_CanBeCreated_AndLoaded()
+    [Fact]
+    public void InMemoryWorkspace_CanBeCreated_AndLoaded()
     {
         // Arrange & Act
         using var service = InMemoryAnalysisService.CreateWithTestProjects(_logger);
 
         // Assert
         var projectNames = service.GetProjectNames().ToList();
-        await Assert.That(projectNames.Count).IsEqualTo(3);
-        await Assert.That(projectNames).Contains("TestConsoleProject");
-        await Assert.That(projectNames).Contains("TestLibrary");
-        await Assert.That(projectNames).Contains("ValidProject");
+        Assert.Equal(3, projectNames.Count);
+        Assert.Contains("TestConsoleProject", projectNames);
+        Assert.Contains("TestLibrary", projectNames);
+        Assert.Contains("ValidProject", projectNames);
 
         Console.WriteLine($"Created workspace with projects: {string.Join(", ", projectNames)}");
     }
 
-    [Test]
+    [Fact]
     public async Task InMemoryWorkspace_GetCompilationErrors_ReturnsExpectedErrors()
     {
         // Arrange
@@ -48,29 +49,29 @@ public class InMemoryTests
         var errors = await service.GetCompilationErrorsAsync();
 
         // Assert
-        await Assert.That(errors.Count).IsGreaterThan(0);
+        Assert.True(errors.Count > 0);
 
         var errorIds = errors.Select(e => e.Id).ToList();
         Console.WriteLine($"Found error IDs: {string.Join(", ", errorIds)}");
 
         // Check for expected error types
-        await Assert.That(errorIds).Contains("CS0103"); // undeclared variable
-        await Assert.That(errorIds).Contains("CS0246"); // unknown type
-        await Assert.That(errorIds).Contains("CS0161"); // not all code paths return
-        await Assert.That(errorIds).Contains("CS1002"); // syntax error
+        Assert.Contains("CS0103", errorIds); // undeclared variable
+        Assert.Contains("CS0246", errorIds); // unknown type
+        Assert.Contains("CS0161", errorIds); // not all code paths return
+        Assert.Contains("CS1002", errorIds); // syntax error
 
         // Validate error structure
         foreach (var error in errors.Take(5)) // Check first 5 errors
         {
-            await Assert.That(error.Id).IsNotNull();
-            await Assert.That(error.Message).IsNotNull();
-            await Assert.That(error.ProjectName).IsNotNull();
-            await Assert.That(error.StartLine).IsGreaterThan(0);
-            await Assert.That(error.StartColumn).IsGreaterThan(0);
+            Assert.NotNull(error.Id);
+            Assert.NotNull(error.Message);
+            Assert.NotNull(error.ProjectName);
+            Assert.True(error.StartLine > 0);
+            Assert.True(error.StartColumn > 0);
         }
     }
 
-    [Test]
+    [Fact]
     public async Task InMemoryWorkspace_GetSolutionInfo_ReturnsCorrectStructure()
     {
         // Arrange
@@ -80,34 +81,34 @@ public class InMemoryTests
         var solutionInfo = await service.GetSolutionInfoAsync();
 
         // Assert
-        await Assert.That(solutionInfo).IsNotNull();
-        await Assert.That(solutionInfo!.Projects.Count).IsEqualTo(3);
-        await Assert.That(solutionInfo.HasCompilationErrors).IsTrue();
-        await Assert.That(solutionInfo.TotalErrors).IsGreaterThan(0);
+        Assert.NotNull(solutionInfo);
+        Assert.Equal(3, solutionInfo!.Projects.Count);
+        Assert.True(solutionInfo.HasCompilationErrors);
+        Assert.True(solutionInfo.TotalErrors > 0);
 
         // Check specific projects
         var consoleProject = solutionInfo.Projects.FirstOrDefault(p => p.Name == "TestConsoleProject");
         var libraryProject = solutionInfo.Projects.FirstOrDefault(p => p.Name == "TestLibrary");
         var validProject = solutionInfo.Projects.FirstOrDefault(p => p.Name == "ValidProject");
 
-        await Assert.That(consoleProject).IsNotNull();
-        await Assert.That(libraryProject).IsNotNull();
-        await Assert.That(validProject).IsNotNull();
+        Assert.NotNull(consoleProject);
+        Assert.NotNull(libraryProject);
+        Assert.NotNull(validProject);
 
         // Console project should be an executable with errors
-        await Assert.That(consoleProject!.OutputType).IsEqualTo("ConsoleApplication");
-        await Assert.That(consoleProject.HasCompilationErrors).IsTrue();
+        Assert.Equal("ConsoleApplication", consoleProject!.OutputType);
+        Assert.True(consoleProject.HasCompilationErrors);
 
         // Library project should be a library with errors
-        await Assert.That(libraryProject!.OutputType).IsEqualTo("DynamicallyLinkedLibrary");
-        await Assert.That(libraryProject.HasCompilationErrors).IsTrue();
+        Assert.Equal("DynamicallyLinkedLibrary", libraryProject!.OutputType);
+        Assert.True(libraryProject.HasCompilationErrors);
 
         // Valid project should have no errors
-        await Assert.That(validProject!.OutputType).IsEqualTo("DynamicallyLinkedLibrary");
-        await Assert.That(validProject.HasCompilationErrors).IsFalse();
+        Assert.Equal("DynamicallyLinkedLibrary", validProject!.OutputType);
+        Assert.False(validProject.HasCompilationErrors);
     }
 
-    [Test]
+    [Fact]
     public async Task InMemoryWorkspace_AnalyzeSpecificDocument_IsolatesErrors()
     {
         // Arrange
@@ -120,29 +121,29 @@ public class InMemoryTests
 
         // Assert
         // Program.cs should have multiple errors
-        await Assert.That(programErrors.Count).IsGreaterThan(0);
-        await Assert.That(programErrors.All(e => e.FilePath == "Program.cs")).IsTrue();
+        Assert.True(programErrors.Count > 0);
+        Assert.True(programErrors.All(e => e.FilePath == "Program.cs"));
 
         var programErrorIds = programErrors.Select(e => e.Id).ToList();
-        await Assert.That(programErrorIds).Contains("CS0103"); // undeclared variable
-        await Assert.That(programErrorIds).Contains("CS0246"); // unknown type
-        await Assert.That(programErrorIds).Contains("CS0161"); // not all code paths return
+        Assert.Contains("CS0103", programErrorIds); // undeclared variable
+        Assert.Contains("CS0246", programErrorIds); // unknown type
+        Assert.Contains("CS0161", programErrorIds); // not all code paths return
 
         // Calculator.cs should have syntax error
-        await Assert.That(calculatorErrors.Count).IsGreaterThan(0);
-        await Assert.That(calculatorErrors.All(e => e.FilePath == "Calculator.cs")).IsTrue();
-        await Assert.That(calculatorErrors.Any(e => e.Id == "CS1002")).IsTrue(); // Missing semicolon
+        Assert.True(calculatorErrors.Count > 0);
+        Assert.True(calculatorErrors.All(e => e.FilePath == "Calculator.cs"));
+        Assert.Contains(calculatorErrors, e => e.Id == "CS1002"); // Missing semicolon
 
         // ValidClass.cs should have no compilation errors (warnings are OK)
         var validClassCompilationErrors = validClassErrors.Where(e => e.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).ToList();
-        await Assert.That(validClassCompilationErrors.Count).IsEqualTo(0);
+        Assert.Empty(validClassCompilationErrors);
 
         Console.WriteLine($"Program.cs errors: {programErrors.Count}");
         Console.WriteLine($"Calculator.cs errors: {calculatorErrors.Count}");
         Console.WriteLine($"ValidClass.cs errors: {validClassErrors.Count}");
     }
 
-    [Test]
+    [Fact]
     public async Task InMemoryWorkspace_SpecificErrorGeneration_CreatesTargetedErrors()
     {
         // Arrange
@@ -152,18 +153,18 @@ public class InMemoryTests
         var errors = await service.GetCompilationErrorsAsync();
 
         // Assert
-        await Assert.That(errors.Count).IsGreaterThan(0);
+        Assert.True(errors.Count > 0);
 
         var errorIds = errors.Select(e => e.Id).ToList();
         Console.WriteLine($"Targeted error IDs: {string.Join(", ", errorIds)}");
 
         // Should contain the specific errors we requested
-        await Assert.That(errorIds).Contains("CS0103");
-        await Assert.That(errorIds).Contains("CS0246");
-        await Assert.That(errorIds).Contains("CS1002");
+        Assert.Contains("CS0103", errorIds);
+        Assert.Contains("CS0246", errorIds);
+        Assert.Contains("CS1002", errorIds);
     }
 
-    [Test]
+    [Fact]
     public async Task InMemoryWorkspace_Performance_CompletesQuickly()
     {
         // Arrange
@@ -182,9 +183,9 @@ public class InMemoryTests
         var solutionInfoTime = stopwatch.ElapsedMilliseconds;
 
         // Assert - More realistic thresholds for CI environments
-        await Assert.That(creationTime).IsLessThan(5000); // Should create workspace in < 5 seconds
-        await Assert.That(analysisTime).IsLessThan(10000); // Should analyze in < 10 seconds
-        await Assert.That(solutionInfoTime).IsLessThan(5000); // Should get info in < 5 seconds
+        Assert.True(creationTime < 5000); // Should create workspace in < 5 seconds
+        Assert.True(analysisTime < 10000); // Should analyze in < 10 seconds
+        Assert.True(solutionInfoTime < 5000); // Should get info in < 5 seconds
 
         Console.WriteLine($"Workspace creation: {creationTime}ms");
         Console.WriteLine($"Error analysis: {analysisTime}ms");
@@ -192,7 +193,7 @@ public class InMemoryTests
         Console.WriteLine($"Found {errors.Count} errors in {solutionInfo?.Projects.Count} projects");
     }
 
-    [Test]
+    [Fact]
     public async Task InMemoryWorkspace_MultipleAnalysisCalls_AreConsistent()
     {
         // Arrange
@@ -205,17 +206,17 @@ public class InMemoryTests
         var solutionInfo2 = await service.GetSolutionInfoAsync();
 
         // Assert
-        await Assert.That(errors1.Count).IsEqualTo(errors2.Count);
-        await Assert.That(solutionInfo1?.Projects.Count).IsEqualTo(solutionInfo2?.Projects.Count);
-        await Assert.That(solutionInfo1?.TotalErrors).IsEqualTo(solutionInfo2?.TotalErrors);
+        Assert.Equal(errors2.Count, errors1.Count);
+        Assert.Equal(solutionInfo2?.Projects.Count, solutionInfo1?.Projects.Count);
+        Assert.Equal(solutionInfo2?.TotalErrors, solutionInfo1?.TotalErrors);
 
         // Error IDs should be the same
         var errorIds1 = errors1.Select(e => e.Id).OrderBy(x => x).ToList();
         var errorIds2 = errors2.Select(e => e.Id).OrderBy(x => x).ToList();
-        await Assert.That(errorIds1.SequenceEqual(errorIds2)).IsTrue();
+        Assert.True(errorIds1.SequenceEqual(errorIds2));
     }
 
-    [Test]
+    [Fact]
     public async Task InMemoryWorkspace_MemoryUsage_IsReasonable()
     {
         // Arrange
@@ -243,12 +244,12 @@ public class InMemoryTests
 
         // Assert - More realistic memory threshold for CI environments
         var memoryIncrease = finalMemory - initialMemory;
-        await Assert.That(memoryIncrease).IsLessThan(200_000_000); // Less than 200MB increase
+        Assert.True(memoryIncrease < 200_000_000); // Less than 200MB increase
 
         Console.WriteLine($"Memory increase: {memoryIncrease / 1024 / 1024}MB");
     }
 
-    [Test]
+    [Fact]
     public async Task InMemoryWorkspace_WithMcpTools_ReturnsValidJson()
     {
         // This test verifies that our in-memory approach works with the actual MCP tools
@@ -274,18 +275,18 @@ public class InMemoryTests
         });
 
         // Assert
-        await Assert.That(errorsJson).IsNotNull();
-        await Assert.That(solutionInfoJson).IsNotNull();
+        Assert.NotNull(errorsJson);
+        Assert.NotNull(solutionInfoJson);
 
         // Parse back to verify structure
         var errorsResponse = JsonSerializer.Deserialize<JsonElement>(errorsJson);
         var solutionResponse = JsonSerializer.Deserialize<JsonElement>(solutionInfoJson);
 
-        await Assert.That(errorsResponse.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(errorsResponse.GetProperty("error_count").GetInt32()).IsGreaterThan(0);
+        Assert.True(errorsResponse.GetProperty("success").GetBoolean());
+        Assert.True(errorsResponse.GetProperty("error_count").GetInt32() > 0);
 
-        await Assert.That(solutionResponse.GetProperty("success").GetBoolean()).IsTrue();
-        await Assert.That(solutionResponse.GetProperty("solution_info").ValueKind).IsNotEqualTo(JsonValueKind.Null);
+        Assert.True(solutionResponse.GetProperty("success").GetBoolean());
+        Assert.NotEqual(JsonValueKind.Null, solutionResponse.GetProperty("solution_info").ValueKind);
 
         Console.WriteLine($"Errors JSON length: {errorsJson.Length}");
         Console.WriteLine($"Solution info JSON length: {solutionInfoJson.Length}");

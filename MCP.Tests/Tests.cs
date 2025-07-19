@@ -2,6 +2,7 @@
 using MCP.Server.Services;
 using MCP.Server.Models;
 using System.Text.Json;
+using Xunit;
 
 namespace MCP.Tests;
 
@@ -23,7 +24,7 @@ public class RoslynAnalysisServiceTests
         _testSolutionPath = Path.Combine(testDataPath, "TestSolution.sln");
     }
 
-    [Test]
+    [Fact]
     public async Task LoadSolutionAsync_ValidSolution_ReturnsTrue()
     {
         // Arrange
@@ -33,13 +34,13 @@ public class RoslynAnalysisServiceTests
         var result = await service.LoadSolutionAsync(_testSolutionPath);
 
         // Assert
-        await Assert.That(result).IsTrue();
+        Assert.True(result);
 
         // Cleanup
         service.Dispose();
     }
 
-    [Test]
+    [Fact]
     public async Task LoadSolutionAsync_InvalidPath_ReturnsFalse()
     {
         // Arrange
@@ -50,13 +51,13 @@ public class RoslynAnalysisServiceTests
         var result = await service.LoadSolutionAsync(invalidPath);
 
         // Assert
-        await Assert.That(result).IsFalse();
+        Assert.False(result);
 
         // Cleanup
         service.Dispose();
     }
 
-    [Test]
+    [Fact]
     public async Task GetCompilationErrorsAsync_WithoutLoadingSolution_ReturnsEmptyList()
     {
         // Arrange
@@ -66,14 +67,14 @@ public class RoslynAnalysisServiceTests
         var errors = await service.GetCompilationErrorsAsync();
 
         // Assert
-        await Assert.That(errors).IsNotNull();
-        await Assert.That(errors.Count).IsEqualTo(0);
+        Assert.NotNull(errors);
+        Assert.Empty(errors);
 
         // Cleanup
         service.Dispose();
     }
 
-    [Test]
+    [Fact]
     public async Task GetCompilationErrorsAsync_WithLoadedSolution_ReturnsErrors()
     {
         // Arrange
@@ -84,21 +85,21 @@ public class RoslynAnalysisServiceTests
         var errors = await service.GetCompilationErrorsAsync();
 
         // Assert
-        await Assert.That(errors).IsNotNull();
-        await Assert.That(errors.Count).IsGreaterThan(0);
+        Assert.NotNull(errors);
+        Assert.True(errors.Count > 0);
 
         // Check that we have the expected error types
         var errorIds = errors.Select(e => e.Id).ToList();
-        await Assert.That(errorIds).Contains("CS0103"); // undeclared variable
-        await Assert.That(errorIds).Contains("CS0246"); // unknown type
-        await Assert.That(errorIds).Contains("CS0161"); // not all code paths return
-        await Assert.That(errorIds).Contains("CS1002"); // syntax error
+        Assert.Contains("CS0103", errorIds); // undeclared variable
+        Assert.Contains("CS0246", errorIds); // unknown type
+        Assert.Contains("CS0161", errorIds); // not all code paths return
+        Assert.Contains("CS1002", errorIds); // syntax error
 
         // Cleanup
         service.Dispose();
     }
 
-    [Test]
+    [Fact]
     public async Task GetSolutionInfoAsync_WithoutLoadingSolution_ReturnsNull()
     {
         // Arrange
@@ -108,10 +109,10 @@ public class RoslynAnalysisServiceTests
         var solutionInfo = await service.GetSolutionInfoAsync();
 
         // Assert
-        await Assert.That(solutionInfo).IsNull();
+        Assert.Null(solutionInfo);
     }
 
-    [Test]
+    [Fact]
     public async Task GetSolutionInfoAsync_WithLoadedSolution_ReturnsValidInfo()
     {
         // Arrange
@@ -122,19 +123,19 @@ public class RoslynAnalysisServiceTests
         var solutionInfo = await service.GetSolutionInfoAsync();
 
         // Assert
-        await Assert.That(solutionInfo).IsNotNull();
-        await Assert.That(solutionInfo!.Name).IsEqualTo("TestSolution");
-        await Assert.That(solutionInfo.Projects.Count).IsEqualTo(2);
-        await Assert.That(solutionInfo.HasCompilationErrors).IsTrue();
-        await Assert.That(solutionInfo.TotalErrors).IsGreaterThan(0);
+        Assert.NotNull(solutionInfo);
+        Assert.Equal("TestSolution", solutionInfo!.Name);
+        Assert.Equal(2, solutionInfo.Projects.Count);
+        Assert.True(solutionInfo.HasCompilationErrors);
+        Assert.True(solutionInfo.TotalErrors > 0);
 
         // Check project names
         var projectNames = solutionInfo.Projects.Select(p => p.Name).ToList();
-        await Assert.That(projectNames).Contains("TestProject");
-        await Assert.That(projectNames).Contains("TestLibrary");
+        Assert.Contains("TestProject", projectNames);
+        Assert.Contains("TestLibrary", projectNames);
     }
 
-    [Test]
+    [Fact]
     public async Task AnalyzeFileAsync_ValidFile_ReturnsFileSpecificErrors()
     {
         // Arrange
@@ -150,20 +151,20 @@ public class RoslynAnalysisServiceTests
         var errors = await service.AnalyzeFileAsync(programFilePath);
 
         // Assert
-        await Assert.That(errors).IsNotNull();
-        await Assert.That(errors.Count).IsGreaterThan(0);
+        Assert.NotNull(errors);
+        Assert.True(errors.Count > 0);
 
         // All errors should be from the Program.cs file
-        await Assert.That(errors.All(e => e.FilePath.EndsWith("Program.cs"))).IsTrue();
+        Assert.True(errors.All(e => e.FilePath.EndsWith("Program.cs")));
 
         // Should contain specific errors from Program.cs
         var errorIds = errors.Select(e => e.Id).ToList();
-        await Assert.That(errorIds).Contains("CS0103"); // undeclared variable
-        await Assert.That(errorIds).Contains("CS0246"); // unknown type
-        await Assert.That(errorIds).Contains("CS0161"); // not all code paths return
+        Assert.Contains("CS0103", errorIds); // undeclared variable
+        Assert.Contains("CS0246", errorIds); // unknown type
+        Assert.Contains("CS0161", errorIds); // not all code paths return
     }
 
-    [Test]
+    [Fact]
     public async Task AnalyzeFileAsync_FileNotInSolution_ReturnsEmptyList()
     {
         // Arrange
@@ -175,7 +176,7 @@ public class RoslynAnalysisServiceTests
         var errors = await service.AnalyzeFileAsync(nonExistentFile);
 
         // Assert
-        await Assert.That(errors).IsNotNull();
-        await Assert.That(errors.Count).IsEqualTo(0);
+        Assert.NotNull(errors);
+        Assert.Empty(errors);
     }
 }
