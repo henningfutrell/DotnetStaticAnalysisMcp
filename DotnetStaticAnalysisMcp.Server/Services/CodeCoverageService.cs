@@ -490,23 +490,35 @@ public class CodeCoverageService
             _logger.LogDebug("Project file content length: {Length} characters for {ProjectPath} operation {OperationId}",
                 content.Length, projectPath, operationId);
 
-            // Check for test-related package references
-            var testPackages = new[]
+            // Check for test framework packages (not just coverage packages)
+            var testFrameworkPackages = new[]
             {
                 "Microsoft.NET.Test.Sdk",
                 "xunit",
                 "NUnit",
-                "MSTest",
-                "coverlet"
+                "MSTest"
             };
 
-            var foundPackages = new List<string>();
-            foreach (var package in testPackages)
+            var foundTestFrameworkPackages = new List<string>();
+            foreach (var package in testFrameworkPackages)
             {
                 if (content.Contains(package, StringComparison.OrdinalIgnoreCase))
                 {
-                    foundPackages.Add(package);
-                    _logger.LogInformation("Found test package '{Package}' in {ProjectPath} for operation {OperationId}",
+                    foundTestFrameworkPackages.Add(package);
+                    _logger.LogInformation("Found test framework package '{Package}' in {ProjectPath} for operation {OperationId}",
+                        package, projectPath, operationId);
+                }
+            }
+
+            // Check for coverage packages separately (these don't make a project a test project)
+            var coveragePackages = new[] { "coverlet" };
+            var foundCoveragePackages = new List<string>();
+            foreach (var package in coveragePackages)
+            {
+                if (content.Contains(package, StringComparison.OrdinalIgnoreCase))
+                {
+                    foundCoveragePackages.Add(package);
+                    _logger.LogInformation("Found coverage package '{Package}' in {ProjectPath} for operation {OperationId}",
                         package, projectPath, operationId);
                 }
             }
@@ -528,11 +540,13 @@ public class CodeCoverageService
                     projectName, operationId);
             }
 
-            var isTestProject = foundPackages.Any() || hasIsTestProject || hasTestInName;
+            // A project is a test project if it has test framework packages, IsTestProject=true, or Test in the name
+            // Coverage packages alone don't make it a test project
+            var isTestProject = foundTestFrameworkPackages.Any() || hasIsTestProject || hasTestInName;
 
             _logger.LogInformation("Test project analysis result for {ProjectPath} operation {OperationId}: {IsTestProject} " +
-                "(Packages: {Packages}, IsTestProject: {HasIsTestProject}, NameContainsTest: {HasTestInName})",
-                projectPath, operationId, isTestProject, string.Join(", ", foundPackages), hasIsTestProject, hasTestInName);
+                "(TestFrameworkPackages: {TestFrameworkPackages}, CoveragePackages: {CoveragePackages}, IsTestProject: {HasIsTestProject}, NameContainsTest: {HasTestInName})",
+                projectPath, operationId, isTestProject, string.Join(", ", foundTestFrameworkPackages), string.Join(", ", foundCoveragePackages), hasIsTestProject, hasTestInName);
 
             _telemetryService.LogTelemetry("CodeCoverageService.IsTestProject.Analysis", new Dictionary<string, object>
             {
@@ -540,7 +554,8 @@ public class CodeCoverageService
                 ["project_path"] = projectPath,
                 ["project_name"] = projectName,
                 ["is_test_project"] = isTestProject,
-                ["found_packages"] = foundPackages.ToArray(),
+                ["found_test_framework_packages"] = foundTestFrameworkPackages.ToArray(),
+                ["found_coverage_packages"] = foundCoveragePackages.ToArray(),
                 ["has_is_test_project"] = hasIsTestProject,
                 ["has_test_in_name"] = hasTestInName,
                 ["content_length"] = content.Length,

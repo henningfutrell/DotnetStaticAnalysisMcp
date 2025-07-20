@@ -114,3 +114,5 @@ node_modules/
 *.backup
 
 *.runsettings
+
+CoverageReport/
