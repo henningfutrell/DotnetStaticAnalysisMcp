@@ -237,3 +237,123 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: Report bugs and request features on GitHub Issues
 - **Discussions**: Join the conversation in GitHub Discussions
 - **Documentation**: Check the wiki for additional documentation
+
+## Example Usage Scenarios
+
+### Scenario 1: Code Review Assistant
+```
+Load the solution at /home/user/MyProject/MyProject.sln and check for any compilation errors. Then analyze the main Program.cs file and suggest performance improvements.
+```
+
+### Scenario 2: Project Health Check
+```
+What's the current status of the loaded solution? Show me the project structure and any issues that need attention.
+```
+
+### Scenario 3: Debugging Build Issues
+```
+I'm getting build errors. Can you load my solution and tell me exactly what's wrong and where?
+```
+
+### Scenario 4: Code Quality Analysis
+```
+Give me code suggestions for style and best practices improvements with high priority items first.
+```
+
+## Advanced Configuration
+
+### Environment Variables
+You can customize the server behavior with environment variables:
+
+```json
+{
+  "mcpServers": {
+    "dotnet-analysis": {
+      "command": "dotnet",
+      "args": ["run", "--project", "/path/to/MCP/MCP.Server"],
+      "env": {
+        "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+        "MSBUILD_EXE_PATH": "/custom/path/to/msbuild",
+        "DOTNET_ROOT": "/custom/dotnet/root"
+      }
+    }
+  }
+}
+```
+
+### Performance Tuning
+For large solutions, you may want to adjust these settings:
+
+- **Memory**: Increase available memory for the .NET process
+- **Timeout**: Adjust solution loading timeouts for very large codebases
+- **Logging**: Reduce logging verbosity in production
+
+### Security Considerations
+- The server runs with the same permissions as your MCP client
+- Only load solutions from trusted sources
+- Be cautious when analyzing solutions with custom MSBuild targets
+
+## Troubleshooting Guide
+
+### Problem: "MSBuild not found"
+**Solution**: 
+1. Install .NET SDK (not just runtime)
+2. Ensure `dotnet` is in your PATH
+3. Try running `dotnet --info` to verify installation
+
+### Problem: "Solution loads but shows 0 projects"
+**Solution**:
+1. Check that the solution file is valid
+2. Ensure all referenced projects exist
+3. Run `dotnet restore` on the solution
+4. Check the diagnostic logs for MSBuild errors
+
+### Problem: "Server not responding"
+**Solution**:
+1. Check MCP client logs for connection errors
+2. Verify the server process is running
+3. Try restarting the MCP client
+4. Check firewall/antivirus blocking the process
+
+### Problem: "Compilation errors not detected"
+**Solution**:
+1. Ensure the solution loads successfully first
+2. Check that projects target supported .NET versions
+3. Verify all NuGet packages are restored
+4. Try building the solution manually with `dotnet build`
+
+## API Reference
+
+### Response Formats
+
+All MCP tools return JSON responses with this general structure:
+
+```json
+{
+  "success": true,
+  "timestamp": "2024-12-20T15:30:00Z",
+  "data": { /* tool-specific data */ }
+}
+```
+
+### Error Handling
+
+When errors occur, responses include detailed error information:
+
+```json
+{
+  "success": false,
+  "error": "Error message",
+  "error_code": "ERROR_CODE",
+  "timestamp": "2024-12-20T15:30:00Z",
+  "details": { /* additional error context */ }
+}
+```
+
+## Acknowledgments
+
+- Built with [Roslyn](https://github.com/dotnet/roslyn) for .NET code analysis
+- Uses [Model Context Protocol](https://modelcontextprotocol.io/) for chat integration
+- Powered by [MSBuild](https://github.com/dotnet/msbuild) for project loading
+- Logging provided by [Serilog](https://serilog.net/)
+- Testing framework: [xUnit](https://xunit.net/)

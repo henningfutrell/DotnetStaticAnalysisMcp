@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "dotnet-analysis": {
+      "command": "dotnet",
+      "args": ["watch", "run", "--project", "/path/to/your/MCP/MCP.Server"],
+      "env": {
+        "DOTNET_CLI_TELEMETRY_OPTOUT": "1"
+      }
+    }
+  }
+}
