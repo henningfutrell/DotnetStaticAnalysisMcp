@@ -1,8 +1,0 @@
-﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
-	<s:String x:Key="/Default/Environment/Highlighting/HighlightingSourceSnapshotLocation/@EntryValue">/home/henning/.cache/JetBrains/Rider2025.1/resharper-host/temp/Rider/vAny/CoverageData/_MCP.-1207782882/Snapshot/snapshot.utdcvr</s:String>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=73205d4e_002Dfc20_002D4bbb_002Dbf6f_002D9fb1c45332c0/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="All tests from &amp;lt;MCP.Tests&amp;gt;" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
-  &lt;Or&gt;
-    &lt;Project Location="/home/henning/Workbench/MCP/MCP.Tests" Presentation="&amp;lt;MCP.Tests&amp;gt;" /&gt;
-    &lt;Project Location="/home/henning/Workbench/MCP/MCP.IntegrationTests" Presentation="&amp;lt;MCP.IntegrationTests&amp;gt;" /&gt;
-  &lt;/Or&gt;
-&lt;/SessionState&gt;</s:String></wpf:ResourceDictionary>
