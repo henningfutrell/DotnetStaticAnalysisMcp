@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using MCP.Server.Services;
 using System.ComponentModel;
 using System.Text.Json;
@@ -12,6 +13,12 @@ namespace MCP.Server.Services;
 [McpServerToolType]
 public class DotNetAnalysisTools
 {
+    private static IServiceProvider? ServiceProvider { get; set; }
+
+    public static void SetServiceProvider(IServiceProvider serviceProvider)
+    {
+        ServiceProvider = serviceProvider;
+    }
     /// <summary>
     /// Load a .NET solution file for analysis
     /// </summary>
@@ -275,6 +282,234 @@ public class DotNetAnalysisTools
     }
 
     /// <summary>
+    /// Get comprehensive diagnostic information including server status, MSBuild state, and recent logs
+    /// </summary>
+    [McpServerTool][Description("Get comprehensive diagnostic information for debugging MCP server issues")]
+    public static Task<string> GetDiagnostics([Description("Include recent log entries")] bool includeLogs = true)
+    {
+        try
+        {
+            var telemetryService = ServiceProvider?.GetService<TelemetryService>();
+            var analysisService = ServiceProvider?.GetService<RoslynAnalysisService>();
+
+            var serverStatus = telemetryService?.GetServerStatus();
+            var msbuildDiagnostics = telemetryService?.GetMSBuildDiagnostics();
+            var recentOperations = telemetryService?.GetRecentOperations(10);
+
+            var diagnostics = new
+            {
+                success = true,
+                timestamp = DateTime.UtcNow,
+                server_status = new
+                {
+                    uptime_minutes = serverStatus?.Uptime.TotalMinutes ?? 0,
+                    current_solution = serverStatus?.CurrentSolution,
+                    project_count = serverStatus?.ProjectCount ?? 0,
+                    total_errors = serverStatus?.TotalErrors ?? 0,
+                    total_warnings = serverStatus?.TotalWarnings ?? 0,
+                    last_solution_load = serverStatus?.LastSolutionLoad,
+                    last_load_duration_ms = serverStatus?.LastLoadDuration?.TotalMilliseconds,
+                    recent_operations = serverStatus?.RecentOperations ?? new List<string>(),
+                    performance_metrics = serverStatus?.PerformanceMetrics ?? new Dictionary<string, object>()
+                },
+                msbuild_diagnostics = new
+                {
+                    is_registered = msbuildDiagnostics?.IsRegistered ?? false,
+                    msbuild_path = msbuildDiagnostics?.MSBuildPath,
+                    msbuild_version = msbuildDiagnostics?.MSBuildVersion,
+                    current_directory = msbuildDiagnostics?.CurrentDirectory,
+                    workspace_diagnostics = msbuildDiagnostics?.WorkspaceDiagnostics ?? new List<string>(),
+                    workspace_failures = msbuildDiagnostics?.WorkspaceFailures ?? new List<string>(),
+                    environment_variables = msbuildDiagnostics?.EnvironmentVariables ?? new Dictionary<string, string>()
+                },
+                environment = new
+                {
+                    process_id = Environment.ProcessId,
+                    machine_name = Environment.MachineName,
+                    user_name = Environment.UserName,
+                    current_directory = Directory.GetCurrentDirectory(),
+                    dotnet_version = Environment.Version.ToString(),
+                    runtime_identifier = System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier,
+                    framework_description = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+                    process_architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
+                    os_description = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                    working_set_mb = Environment.WorkingSet / 1024 / 1024,
+                    gc_total_memory_mb = GC.GetTotalMemory(false) / 1024 / 1024
+                },
+                recent_operations = recentOperations?.Select(op => new
+                {
+                    operation_id = op.OperationId,
+                    operation_type = op.OperationType,
+                    start_time = op.StartTime,
+                    end_time = op.EndTime,
+                    duration_ms = op.Duration?.TotalMilliseconds,
+                    is_success = op.IsSuccess,
+                    error_message = op.ErrorMessage,
+                    properties = op.Properties
+                }).Cast<object>().ToList() ?? new List<object>(),
+                log_file_info = GetLogFileInfo()
+            };
+
+            return Task.FromResult(JsonSerializer.Serialize(diagnostics, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                stack_trace = ex.StackTrace,
+                timestamp = DateTime.UtcNow
+            }));
+        }
+    }
+
+    private static object GetLogFileInfo()
+    {
+        try
+        {
+            var logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mcp", "logs");
+            var logFile = Path.Combine(logDirectory, "dotnet-analysis.log");
+
+            if (File.Exists(logFile))
+            {
+                var fileInfo = new FileInfo(logFile);
+                var recentLines = new List<string>();
+
+                try
+                {
+                    // Read last 20 lines of log file
+                    var lines = File.ReadAllLines(logFile);
+                    recentLines = lines.TakeLast(20).ToList();
+                }
+                catch (Exception ex)
+                {
+                    recentLines.Add($"Error reading log file: {ex.Message}");
+                }
+
+                return new
+                {
+                    log_file_path = logFile,
+                    file_size_mb = fileInfo.Length / 1024.0 / 1024.0,
+                    last_modified = fileInfo.LastWriteTime,
+                    recent_log_entries = recentLines
+                };
+            }
+            else
+            {
+                return new
+                {
+                    log_file_path = logFile,
+                    file_exists = false,
+                    message = "Log file does not exist"
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            return new
+            {
+                error = $"Failed to get log file info: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Get server version and build information to confirm updates
+    /// </summary>
+    [McpServerTool][Description("Get server version and build timestamp to verify server updates")]
+    public static Task<string> GetServerVersion()
+    {
+        try
+        {
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var buildTime = File.GetLastWriteTime(assembly.Location);
+
+            var version = new
+            {
+                success = true,
+                server_name = "MCP .NET Analysis Server",
+                version = "1.0.0",
+                build_timestamp = buildTime,
+                assembly_location = assembly.Location,
+                current_time = DateTime.UtcNow,
+                process_start_time = DateTime.UtcNow, // This will show when the process started
+                test_marker = "ENHANCED_LOGGING_VERSION_20241220", // Change this to verify updates
+                features = new[]
+                {
+                    "Enhanced Logging",
+                    "Telemetry Service",
+                    "Debug File Logging",
+                    "MSBuild Diagnostics",
+                    "Version Verification"
+                }
+            };
+
+            return Task.FromResult(JsonSerializer.Serialize(version, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            }));
+        }
+    }
+
+    /// <summary>
+    /// Get basic environment diagnostics
+    /// </summary>
+    [McpServerTool][Description("Get basic environment and MSBuild diagnostics")]
+    public static Task<string> GetBasicDiagnostics()
+    {
+        try
+        {
+            var diagnostics = new
+            {
+                success = true,
+                timestamp = DateTime.UtcNow,
+                environment = new
+                {
+                    current_directory = Directory.GetCurrentDirectory(),
+                    process_id = Environment.ProcessId,
+                    machine_name = Environment.MachineName,
+                    user_name = Environment.UserName,
+                    dotnet_version = Environment.Version.ToString(),
+                    framework_description = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+                    os_description = System.Runtime.InteropServices.RuntimeInformation.OSDescription
+                },
+                msbuild = new
+                {
+                    is_registered = Microsoft.Build.Locator.MSBuildLocator.IsRegistered,
+                    instances = Microsoft.Build.Locator.MSBuildLocator.QueryVisualStudioInstances()
+                        .Select(i => new { i.Name, Version = i.Version.ToString(), i.MSBuildPath })
+                        .ToList()
+                },
+                environment_variables = Environment.GetEnvironmentVariables()
+                    .Cast<System.Collections.DictionaryEntry>()
+                    .Where(e => e.Key.ToString()?.Contains("DOTNET", StringComparison.OrdinalIgnoreCase) == true ||
+                               e.Key.ToString()?.Contains("MSBUILD", StringComparison.OrdinalIgnoreCase) == true ||
+                               e.Key.ToString()?.Equals("PATH", StringComparison.OrdinalIgnoreCase) == true)
+                    .ToDictionary(e => e.Key.ToString() ?? "", e => e.Value?.ToString() ?? "")
+            };
+
+            return Task.FromResult(JsonSerializer.Serialize(diagnostics, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                stack_trace = ex.StackTrace,
+                timestamp = DateTime.UtcNow
+            }));
+        }
+    }
+
+    /// <summary>
     /// Get available suggestion categories and their descriptions
     /// </summary>
     [McpServerTool][Description("Get information about available code suggestion categories and configuration options")]
@@ -306,6 +541,10 @@ public class DotNetAnalysisTools
                 })
                 .ToArray();
 
+            // Add build timestamp to verify server updates
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var buildTime = File.GetLastWriteTime(assembly.Location);
+
             var result = new
             {
                 success = true,
@@ -318,6 +557,14 @@ public class DotNetAnalysisTools
                     include_auto_fixable = true,
                     include_manual_fix = true,
                     minimum_priority = "Low"
+                },
+                // Server version info to verify updates
+                server_info = new
+                {
+                    build_timestamp = buildTime,
+                    current_time = DateTime.UtcNow,
+                    version_marker = "CSHARP_LANGUAGE_SUPPORT_20241220_1445", // Update this to verify changes
+                    assembly_location = assembly.Location
                 }
             };
 

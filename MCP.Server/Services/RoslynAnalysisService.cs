@@ -1,8 +1,10 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
+using Microsoft.CodeAnalysis.Host.Mef;
 using Microsoft.Extensions.Logging;
 using MCP.Server.Models;
 using System.Collections.Immutable;
+using System.Composition.Hosting;
 
 namespace MCP.Server.Services;
 
@@ -12,12 +14,15 @@ namespace MCP.Server.Services;
 public class RoslynAnalysisService : IDisposable
 {
     private readonly ILogger<RoslynAnalysisService> _logger;
+    private readonly TelemetryService? _telemetryService;
     private MSBuildWorkspace? _workspace;
     private Solution? _currentSolution;
 
-    public RoslynAnalysisService(ILogger<RoslynAnalysisService> logger)
+    public RoslynAnalysisService(ILogger<RoslynAnalysisService> logger, TelemetryService? telemetryService = null)
     {
         _logger = logger;
+        _telemetryService = telemetryService;
+        _logger.LogInformation("RoslynAnalysisService initialized with telemetry: {HasTelemetry}", telemetryService != null);
     }
 
     /// <summary>
@@ -25,27 +30,133 @@ public class RoslynAnalysisService : IDisposable
     /// </summary>
     public async Task<bool> LoadSolutionAsync(string solutionPath)
     {
+        var telemetry = _telemetryService?.StartOperation("LoadSolution");
+        var context = new Models.LogContext
+        {
+            Operation = "LoadSolution",
+            SolutionPath = solutionPath
+        };
+
         try
         {
-            _logger.LogInformation("Loading solution: {SolutionPath}", solutionPath);
-            
+            _logger.LogInformation("Loading solution: {SolutionPath} [CorrelationId: {CorrelationId}]",
+                solutionPath, context.CorrelationId);
+
+            // Also write to a simple debug file for visibility
+            var debugLog = $"/tmp/mcp-debug-{DateTime.Now:yyyyMMdd}.log";
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Loading solution: {solutionPath}\n");
+
+            // Validate solution file exists
+            if (!File.Exists(solutionPath))
+            {
+                _logger.LogError("Solution file does not exist: {SolutionPath} [CorrelationId: {CorrelationId}]",
+                    solutionPath, context.CorrelationId);
+                telemetry?.Properties.Add("Error", "FileNotFound");
+                _telemetryService?.FailOperation(telemetry!, new FileNotFoundException($"Solution file not found: {solutionPath}"));
+                return false;
+            }
+
+            // Log environment diagnostics
+            var msbuildDiagnostics = _telemetryService?.GetMSBuildDiagnostics();
+            _logger.LogInformation("MSBuild Status: Registered={IsRegistered}, Path={MSBuildPath}, Version={Version} [CorrelationId: {CorrelationId}]",
+                msbuildDiagnostics?.IsRegistered, msbuildDiagnostics?.MSBuildPath, msbuildDiagnostics?.MSBuildVersion, context.CorrelationId);
+
             // Dispose existing workspace if any
             _workspace?.Dispose();
-            
-            // Create new workspace
-            _workspace = MSBuildWorkspace.Create();
-            
+
+            // Create new workspace with C# language support and enhanced logging
+            _logger.LogInformation("Creating MSBuild workspace with C# support [CorrelationId: {CorrelationId}]", context.CorrelationId);
+
+            // Create workspace with C# language services
+            try
+            {
+                var services = MefHostServices.Create(MefHostServices.DefaultAssemblies);
+                _workspace = MSBuildWorkspace.Create(new Dictionary<string, string>(), services);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Failed to create workspace with MEF services, falling back to default: {Error}", ex.Message);
+                _workspace = MSBuildWorkspace.Create();
+            }
+
+            _logger.LogInformation("MSBuild workspace created with C# language services [CorrelationId: {CorrelationId}]", context.CorrelationId);
+
+            // Subscribe to workspace events for debugging
+            _workspace.WorkspaceFailed += (sender, e) =>
+            {
+                _logger.LogWarning("Workspace failed: {Diagnostic} [CorrelationId: {CorrelationId}]",
+                    e.Diagnostic, context.CorrelationId);
+                msbuildDiagnostics?.WorkspaceFailures.Add(e.Diagnostic.ToString());
+            };
+
+            _logger.LogInformation("Loading solution with MSBuild workspace [CorrelationId: {CorrelationId}]", context.CorrelationId);
+
             // Load the solution
+            var loadStart = DateTime.UtcNow;
             _currentSolution = await _workspace.OpenSolutionAsync(solutionPath);
-            
-            _logger.LogInformation("Successfully loaded solution with {ProjectCount} projects", 
-                _currentSolution.Projects.Count());
-            
+            var loadDuration = DateTime.UtcNow - loadStart;
+
+            var projectCount = _currentSolution.Projects.Count();
+            _logger.LogInformation("Solution loaded in {LoadDurationMs}ms with {ProjectCount} projects [CorrelationId: {CorrelationId}]",
+                loadDuration.TotalMilliseconds, projectCount, context.CorrelationId);
+
+            // Debug logging
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Solution loaded with {projectCount} projects in {loadDuration.TotalMilliseconds}ms\n");
+
+            // Log detailed project information
+            var projectDetails = new List<object>();
+            foreach (var project in _currentSolution.Projects)
+            {
+                var projectDetail = new
+                {
+                    Name = project.Name,
+                    FilePath = project.FilePath,
+                    DocumentCount = project.Documents.Count(),
+                    Language = project.Language
+                };
+                projectDetails.Add(projectDetail);
+
+                _logger.LogInformation("Found project: {ProjectName} at {ProjectPath} ({DocumentCount} documents, {Language}) [CorrelationId: {CorrelationId}]",
+                    project.Name, project.FilePath, project.Documents.Count(), project.Language, context.CorrelationId);
+            }
+
+            // Log any workspace diagnostics
+            foreach (var diagnostic in _workspace.Diagnostics)
+            {
+                _logger.LogWarning("Workspace diagnostic: {Diagnostic} [CorrelationId: {CorrelationId}]",
+                    diagnostic, context.CorrelationId);
+                msbuildDiagnostics?.WorkspaceDiagnostics.Add(diagnostic.ToString());
+            }
+
+            // Update telemetry
+            var properties = new Dictionary<string, object>
+            {
+                ["SolutionPath"] = solutionPath,
+                ["ProjectCount"] = projectCount,
+                ["LoadDurationMs"] = loadDuration.TotalMilliseconds,
+                ["ProjectDetails"] = projectDetails,
+                ["WorkspaceDiagnosticCount"] = _workspace.Diagnostics.Count(),
+                ["MSBuildDiagnostics"] = msbuildDiagnostics ?? new Models.MSBuildDiagnostics()
+            };
+
+            _telemetryService?.CompleteOperation(telemetry!, properties);
+            _telemetryService?.UpdateSolutionStatus(solutionPath, projectCount, 0, 0, loadDuration);
+
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load solution: {SolutionPath}", solutionPath);
+            _logger.LogError(ex, "Failed to load solution: {SolutionPath} [CorrelationId: {CorrelationId}] - {ErrorMessage}",
+                solutionPath, context.CorrelationId, ex.Message);
+
+            var errorProperties = new Dictionary<string, object>
+            {
+                ["SolutionPath"] = solutionPath,
+                ["ErrorType"] = ex.GetType().Name,
+                ["StackTrace"] = ex.StackTrace ?? ""
+            };
+
+            _telemetryService?.FailOperation(telemetry!, ex, errorProperties);
             return false;
         }
     }
@@ -125,6 +236,9 @@ public class RoslynAnalysisService : IDisposable
             return null;
         }
 
+        _logger.LogInformation("Getting solution info for: {SolutionPath}", _currentSolution.FilePath);
+        _logger.LogInformation("Solution has {ProjectCount} projects", _currentSolution.Projects.Count());
+
         var solutionInfo = new Models.SolutionInfo
         {
             Name = Path.GetFileNameWithoutExtension(_currentSolution.FilePath) ?? "Unknown",
@@ -136,11 +250,17 @@ public class RoslynAnalysisService : IDisposable
         {
             try
             {
+                _logger.LogInformation("Processing project: {ProjectName} at {ProjectPath}",
+                    project.Name, project.FilePath);
+
                 var compilation = await project.GetCompilationAsync();
                 var diagnostics = compilation?.GetDiagnostics() ?? ImmutableArray<Diagnostic>.Empty;
-                
+
                 var errorCount = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
                 var warningCount = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Warning);
+
+                _logger.LogInformation("Project {ProjectName} has {ErrorCount} errors and {WarningCount} warnings",
+                    project.Name, errorCount, warningCount);
 
                 var projectInfo = new Models.ProjectInfo
                 {
