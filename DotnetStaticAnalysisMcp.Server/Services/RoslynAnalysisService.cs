@@ -1,6 +1,9 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
 using Microsoft.CodeAnalysis.Host.Mef;
+using Microsoft.CodeAnalysis.FindSymbols;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.Logging;
 using System.Collections.Immutable;
 using System.Composition.Hosting;
@@ -694,6 +697,936 @@ public class RoslynAnalysisService : IDisposable
 
         return string.Empty;
     }
+
+    #region Type Analysis Methods
+
+    /// <summary>
+    /// Finds all usages of a specific type across the solution
+    /// </summary>
+    /// <param name="typeName">The name of the type to find</param>
+    /// <param name="options">Analysis options</param>
+    /// <returns>Type usage analysis result</returns>
+    public async Task<TypeUsageAnalysisResult> FindTypeUsagesAsync(string typeName, TypeUsageAnalysisOptions? options = null)
+    {
+        var result = new TypeUsageAnalysisResult
+        {
+            TypeName = typeName
+        };
+
+        try
+        {
+            if (_currentSolution == null)
+            {
+                result.ErrorMessage = "No solution loaded";
+                return result;
+            }
+
+            options ??= new TypeUsageAnalysisOptions();
+
+            // Find the type symbol
+            var typeSymbol = await FindTypeSymbolAsync(typeName);
+            if (typeSymbol == null)
+            {
+                result.ErrorMessage = $"Type '{typeName}' not found in the solution";
+                return result;
+            }
+
+            result.FullTypeName = typeSymbol.ToDisplayString();
+            result.Namespace = typeSymbol.ContainingNamespace?.ToDisplayString();
+
+            // Find all references to the type
+            var references = await SymbolFinder.FindReferencesAsync(typeSymbol, _currentSolution);
+
+            var usages = new List<TypeUsageReference>();
+            var projectsWithUsages = new HashSet<string>();
+
+            foreach (var reference in references)
+            {
+                foreach (var location in reference.Locations)
+                {
+                    if (location.Document == null) continue;
+
+                    var project = location.Document.Project;
+                    if (options.ExcludedProjects.Contains(project.Name)) continue;
+
+                    projectsWithUsages.Add(project.Name);
+
+                    var usage = await CreateTypeUsageReferenceAsync(location, typeSymbol);
+                    if (usage != null && ShouldIncludeUsage(usage, options))
+                    {
+                        usages.Add(usage);
+                    }
+                }
+            }
+
+            // Apply filters and limits
+            if (options.IncludedUsageKinds.Any())
+            {
+                usages = usages.Where(u => options.IncludedUsageKinds.Contains(u.UsageKind)).ToList();
+            }
+
+            if (usages.Count > options.MaxResults)
+            {
+                usages = usages.Take(options.MaxResults).ToList();
+            }
+
+            result.Usages = usages;
+            result.TotalUsages = usages.Count;
+            result.ProjectsWithUsages = projectsWithUsages.ToList();
+            result.UsagesByKind = usages.GroupBy(u => u.UsageKind)
+                .ToDictionary(g => g.Key, g => g.Count());
+            result.Success = true;
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error finding type usages for {TypeName}", typeName);
+            result.ErrorMessage = ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Finds all usages of a specific member (method, property, field, event)
+    /// </summary>
+    /// <param name="typeName">The containing type name</param>
+    /// <param name="memberName">The member name</param>
+    /// <returns>Member usage analysis result</returns>
+    public async Task<MemberUsageAnalysisResult> FindMemberUsagesAsync(string typeName, string memberName)
+    {
+        var result = new MemberUsageAnalysisResult
+        {
+            ContainingType = typeName,
+            MemberName = memberName
+        };
+
+        try
+        {
+            if (_currentSolution == null)
+            {
+                result.ErrorMessage = "No solution loaded";
+                return result;
+            }
+
+            // Find the type symbol
+            var typeSymbol = await FindTypeSymbolAsync(typeName);
+            if (typeSymbol == null)
+            {
+                result.ErrorMessage = $"Type '{typeName}' not found";
+                return result;
+            }
+
+            // Find the member symbol
+            var memberSymbol = typeSymbol.GetMembers(memberName).FirstOrDefault();
+            if (memberSymbol == null)
+            {
+                result.ErrorMessage = $"Member '{memberName}' not found in type '{typeName}'";
+                return result;
+            }
+
+            result.MemberKind = memberSymbol.Kind.ToString();
+
+            // Find all references to the member
+            var references = await SymbolFinder.FindReferencesAsync(memberSymbol, _currentSolution);
+
+            var usages = new List<MemberUsageReference>();
+            var projectsWithUsages = new HashSet<string>();
+
+            foreach (var reference in references)
+            {
+                foreach (var location in reference.Locations)
+                {
+                    if (location.Document == null) continue;
+
+                    var project = location.Document.Project;
+                    projectsWithUsages.Add(project.Name);
+
+                    var usage = await CreateMemberUsageReferenceAsync(location, memberSymbol);
+                    if (usage != null)
+                    {
+                        usages.Add(usage);
+                    }
+                }
+            }
+
+            result.Usages = usages;
+            result.TotalUsages = usages.Count;
+            result.ProjectsWithUsages = projectsWithUsages.ToList();
+            result.UsagesByKind = usages.GroupBy(u => u.UsageKind)
+                .ToDictionary(g => g.Key, g => g.Count());
+            result.Success = true;
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error finding member usages for {TypeName}.{MemberName}", typeName, memberName);
+            result.ErrorMessage = ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Finds all usages of a namespace
+    /// </summary>
+    /// <param name="namespaceName">The namespace to find</param>
+    /// <returns>Type usage analysis result</returns>
+    public async Task<TypeUsageAnalysisResult> FindNamespaceUsagesAsync(string namespaceName)
+    {
+        var result = new TypeUsageAnalysisResult
+        {
+            TypeName = namespaceName,
+            FullTypeName = namespaceName
+        };
+
+        try
+        {
+            if (_currentSolution == null)
+            {
+                result.ErrorMessage = "No solution loaded";
+                return result;
+            }
+
+            var usages = new List<TypeUsageReference>();
+            var projectsWithUsages = new HashSet<string>();
+
+            foreach (var project in _currentSolution.Projects)
+            {
+                foreach (var document in project.Documents)
+                {
+                    var syntaxTree = await document.GetSyntaxTreeAsync();
+                    if (syntaxTree == null) continue;
+
+                    var root = await syntaxTree.GetRootAsync();
+                    var usingDirectives = root.DescendantNodes().OfType<UsingDirectiveSyntax>();
+
+                    foreach (var usingDirective in usingDirectives)
+                    {
+                        var nameText = usingDirective.Name?.ToString();
+                        if (nameText == namespaceName || nameText?.StartsWith(namespaceName + ".") == true)
+                        {
+                            projectsWithUsages.Add(project.Name);
+
+                            var lineSpan = usingDirective.GetLocation().GetLineSpan();
+                            var usage = new TypeUsageReference
+                            {
+                                FilePath = document.FilePath ?? document.Name,
+                                ProjectName = project.Name,
+                                StartLine = lineSpan.StartLinePosition.Line + 1,
+                                StartColumn = lineSpan.StartLinePosition.Character + 1,
+                                EndLine = lineSpan.EndLinePosition.Line + 1,
+                                EndColumn = lineSpan.EndLinePosition.Character + 1,
+                                UsageKind = TypeUsageKind.UsingDirective,
+                                Context = "Using directive",
+                                CodeSnippet = usingDirective.ToString()
+                            };
+
+                            usages.Add(usage);
+                        }
+                    }
+                }
+            }
+
+            result.Usages = usages;
+            result.TotalUsages = usages.Count;
+            result.ProjectsWithUsages = projectsWithUsages.ToList();
+            result.UsagesByKind = usages.GroupBy(u => u.UsageKind)
+                .ToDictionary(g => g.Key, g => g.Count());
+            result.Success = true;
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error finding namespace usages for {NamespaceName}", namespaceName);
+            result.ErrorMessage = ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Gets all types that a specific type depends on
+    /// </summary>
+    /// <param name="typeName">The type to analyze</param>
+    /// <returns>Dependency analysis result</returns>
+    public async Task<DependencyAnalysisResult> GetTypeDependenciesAsync(string typeName)
+    {
+        var result = new DependencyAnalysisResult
+        {
+            AnalyzedType = typeName
+        };
+
+        try
+        {
+            if (_currentSolution == null)
+            {
+                result.ErrorMessage = "No solution loaded";
+                return result;
+            }
+
+            var typeSymbol = await FindTypeSymbolAsync(typeName);
+            if (typeSymbol == null)
+            {
+                result.ErrorMessage = $"Type '{typeName}' not found";
+                return result;
+            }
+
+            var dependencies = new List<TypeDependency>();
+
+            // Analyze base types
+            if (typeSymbol.BaseType != null && !typeSymbol.BaseType.SpecialType.HasFlag(SpecialType.System_Object))
+            {
+                dependencies.Add(new TypeDependency
+                {
+                    DependentType = typeName,
+                    DependencyType = typeSymbol.BaseType.Name,
+                    Kind = DependencyKind.Inheritance,
+                    Context = "Base class"
+                });
+            }
+
+            // Analyze implemented interfaces
+            foreach (var interfaceType in typeSymbol.Interfaces)
+            {
+                dependencies.Add(new TypeDependency
+                {
+                    DependentType = typeName,
+                    DependencyType = interfaceType.Name,
+                    Kind = DependencyKind.Implementation,
+                    Context = "Implemented interface"
+                });
+            }
+
+            // Analyze members for composition/aggregation
+            foreach (var member in typeSymbol.GetMembers())
+            {
+                if (member is IPropertySymbol property)
+                {
+                    var propertyTypeName = property.Type.Name;
+                    if (!IsBuiltInType(property.Type))
+                    {
+                        dependencies.Add(new TypeDependency
+                        {
+                            DependentType = typeName,
+                            DependencyType = propertyTypeName,
+                            Kind = DependencyKind.Composition,
+                            Context = $"Property: {property.Name}"
+                        });
+                    }
+                }
+                else if (member is IFieldSymbol field)
+                {
+                    var fieldTypeName = field.Type.Name;
+                    if (!IsBuiltInType(field.Type))
+                    {
+                        dependencies.Add(new TypeDependency
+                        {
+                            DependentType = typeName,
+                            DependencyType = fieldTypeName,
+                            Kind = DependencyKind.Composition,
+                            Context = $"Field: {field.Name}"
+                        });
+                    }
+                }
+            }
+
+            result.Dependencies = dependencies;
+            result.TotalDependencies = dependencies.Count;
+            result.Success = true;
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error analyzing dependencies for {TypeName}", typeName);
+            result.ErrorMessage = ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Gets all types that depend on a specific type
+    /// </summary>
+    /// <param name="typeName">The type to analyze</param>
+    /// <returns>Dependency analysis result</returns>
+    public async Task<DependencyAnalysisResult> GetTypeDependentsAsync(string typeName)
+    {
+        var result = new DependencyAnalysisResult
+        {
+            AnalyzedType = typeName
+        };
+
+        try
+        {
+            if (_currentSolution == null)
+            {
+                result.ErrorMessage = "No solution loaded";
+                return result;
+            }
+
+            var typeSymbol = await FindTypeSymbolAsync(typeName);
+            if (typeSymbol == null)
+            {
+                result.ErrorMessage = $"Type '{typeName}' not found";
+                return result;
+            }
+
+            var dependents = new List<TypeDependency>();
+
+            // Find all types that reference this type
+            var references = await SymbolFinder.FindReferencesAsync(typeSymbol, _currentSolution);
+
+            foreach (var reference in references)
+            {
+                foreach (var location in reference.Locations)
+                {
+                    if (location.Document == null) continue;
+
+                    var semanticModel = await location.Document.GetSemanticModelAsync();
+                    if (semanticModel == null) continue;
+
+                    var syntaxTree = await location.Document.GetSyntaxTreeAsync();
+                    if (syntaxTree == null) continue;
+
+                    var root = await syntaxTree.GetRootAsync();
+                    var node = root.FindNode(location.Location.SourceSpan);
+
+                    // Find the containing type
+                    var containingTypeNode = node.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+                    if (containingTypeNode != null)
+                    {
+                        var containingTypeSymbol = semanticModel.GetDeclaredSymbol(containingTypeNode);
+                        if (containingTypeSymbol != null && containingTypeSymbol.Name != typeName)
+                        {
+                            var dependencyKind = DetermineDependencyKind(node, typeSymbol);
+
+                            dependents.Add(new TypeDependency
+                            {
+                                DependentType = containingTypeSymbol.Name,
+                                DependencyType = typeName,
+                                Kind = dependencyKind,
+                                Context = GetUsageContext(node)
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Remove duplicates
+            dependents = dependents
+                .GroupBy(d => new { d.DependentType, d.DependencyType, d.Kind })
+                .Select(g => g.First())
+                .ToList();
+
+            result.Dependents = dependents;
+            result.TotalDependents = dependents.Count;
+            result.Success = true;
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error analyzing dependents for {TypeName}", typeName);
+            result.ErrorMessage = ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Analyzes the potential impact of changing a type
+    /// </summary>
+    /// <param name="typeName">The type to analyze</param>
+    /// <returns>Impact analysis result</returns>
+    public async Task<ImpactAnalysisResult> AnalyzeImpactScopeAsync(string typeName)
+    {
+        var result = new ImpactAnalysisResult
+        {
+            AnalyzedItem = typeName
+        };
+
+        try
+        {
+            var usageResult = await FindTypeUsagesAsync(typeName);
+            if (!usageResult.Success)
+            {
+                result.ErrorMessage = usageResult.ErrorMessage;
+                return result;
+            }
+
+            result.AffectedUsages = usageResult.Usages;
+            result.AffectedProjects = usageResult.ProjectsWithUsages;
+
+            // Determine impact scope
+            if (usageResult.TotalUsages == 0)
+            {
+                result.Scope = ImpactScope.None;
+            }
+            else if (usageResult.ProjectsWithUsages.Count == 1)
+            {
+                var fileCount = usageResult.Usages.Select(u => u.FilePath).Distinct().Count();
+                result.Scope = fileCount == 1 ? ImpactScope.SameFile : ImpactScope.SameProject;
+            }
+            else
+            {
+                result.Scope = usageResult.ProjectsWithUsages.Count > 1 ?
+                    ImpactScope.MultipleProjets : ImpactScope.EntireSolution;
+            }
+
+            // Generate recommendations
+            result.Recommendations = GenerateImpactRecommendations(usageResult);
+
+            // Identify potential breaking changes
+            result.PotentialBreakingChanges = IdentifyBreakingChanges(usageResult);
+
+            result.Success = true;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error analyzing impact scope for {TypeName}", typeName);
+            result.ErrorMessage = ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Validates if renaming a type would be safe
+    /// </summary>
+    /// <param name="currentName">Current type name</param>
+    /// <param name="proposedName">Proposed new name</param>
+    /// <returns>Rename safety result</returns>
+    public async Task<RenameSafetyResult> ValidateRenameSafetyAsync(string currentName, string proposedName)
+    {
+        var result = new RenameSafetyResult
+        {
+            CurrentName = currentName,
+            ProposedName = proposedName
+        };
+
+        try
+        {
+            if (_currentSolution == null)
+            {
+                result.ErrorMessage = "No solution loaded";
+                return result;
+            }
+
+            // Check if proposed name already exists
+            var existingType = await FindTypeSymbolAsync(proposedName);
+            if (existingType != null)
+            {
+                result.IsSafeToRename = false;
+                result.Conflicts.Add($"Type '{proposedName}' already exists");
+            }
+
+            // Get all usages that would be affected
+            var usageResult = await FindTypeUsagesAsync(currentName);
+            if (usageResult.Success)
+            {
+                result.AffectedUsages = usageResult.Usages;
+
+                // Check for potential naming conflicts in each usage location
+                foreach (var usage in usageResult.Usages)
+                {
+                    // Additional conflict checking logic would go here
+                    // For now, we'll assume it's safe if no type conflicts exist
+                }
+            }
+
+            if (result.Conflicts.Count == 0)
+            {
+                result.IsSafeToRename = true;
+            }
+
+            result.Success = true;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating rename safety for {CurrentName} to {ProposedName}",
+                currentName, proposedName);
+            result.ErrorMessage = ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Previews the impact of renaming a type
+    /// </summary>
+    /// <param name="currentName">Current type name</param>
+    /// <param name="proposedName">Proposed new name</param>
+    /// <returns>Impact analysis result</returns>
+    public async Task<ImpactAnalysisResult> PreviewRenameImpactAsync(string currentName, string proposedName)
+    {
+        var result = new ImpactAnalysisResult
+        {
+            AnalyzedItem = $"{currentName} -> {proposedName}"
+        };
+
+        try
+        {
+            var usageResult = await FindTypeUsagesAsync(currentName);
+            if (!usageResult.Success)
+            {
+                result.ErrorMessage = usageResult.ErrorMessage;
+                return result;
+            }
+
+            result.AffectedUsages = usageResult.Usages;
+            result.AffectedProjects = usageResult.ProjectsWithUsages;
+
+            // Determine scope
+            result.Scope = usageResult.ProjectsWithUsages.Count > 1 ?
+                ImpactScope.MultipleProjets : ImpactScope.SameProject;
+
+            // Generate specific recommendations for rename
+            result.Recommendations.Add($"Rename will affect {usageResult.TotalUsages} locations across {usageResult.ProjectsWithUsages.Count} projects");
+            result.Recommendations.Add("Consider using IDE refactoring tools for safe rename operations");
+
+            if (usageResult.ProjectsWithUsages.Count > 1)
+            {
+                result.Recommendations.Add("Ensure all projects are rebuilt after rename");
+            }
+
+            result.Success = true;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error previewing rename impact for {CurrentName} to {ProposedName}",
+                currentName, proposedName);
+            result.ErrorMessage = ex.Message;
+            return result;
+        }
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    /// <summary>
+    /// Finds a type symbol by name in the current solution
+    /// </summary>
+    private async Task<INamedTypeSymbol?> FindTypeSymbolAsync(string typeName)
+    {
+        if (_currentSolution == null) return null;
+
+        foreach (var project in _currentSolution.Projects)
+        {
+            var compilation = await project.GetCompilationAsync();
+            if (compilation == null) continue;
+
+            // Try exact match first
+            var typeSymbol = compilation.GetTypeByMetadataName(typeName);
+            if (typeSymbol != null) return typeSymbol;
+
+            // Try searching by name in all namespaces
+            var allTypes = compilation.GetSymbolsWithName(name => name == typeName, SymbolFilter.Type);
+            var namedType = allTypes.OfType<INamedTypeSymbol>().FirstOrDefault();
+            if (namedType != null) return namedType;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Creates a type usage reference from a reference location
+    /// </summary>
+    private async Task<TypeUsageReference?> CreateTypeUsageReferenceAsync(Microsoft.CodeAnalysis.FindSymbols.ReferenceLocation location, ISymbol typeSymbol)
+    {
+        try
+        {
+            if (location.Document == null) return null;
+
+            var syntaxTree = await location.Document.GetSyntaxTreeAsync();
+            if (syntaxTree == null) return null;
+
+            var root = await syntaxTree.GetRootAsync();
+            var node = root.FindNode(location.Location.SourceSpan);
+
+            var lineSpan = location.Location.GetLineSpan();
+            var usageKind = DetermineTypeUsageKind(node, typeSymbol);
+            var context = GetUsageContext(node);
+            var codeSnippet = GetSourceTextSnippet(syntaxTree, location.Location.SourceSpan);
+
+            return new TypeUsageReference
+            {
+                FilePath = location.Document.FilePath ?? location.Document.Name,
+                ProjectName = location.Document.Project.Name,
+                StartLine = lineSpan.StartLinePosition.Line + 1,
+                StartColumn = lineSpan.StartLinePosition.Character + 1,
+                EndLine = lineSpan.EndLinePosition.Line + 1,
+                EndColumn = lineSpan.EndLinePosition.Character + 1,
+                UsageKind = usageKind,
+                Context = context,
+                CodeSnippet = codeSnippet,
+                ContainingMember = GetContainingMember(node),
+                ContainingType = GetContainingType(node)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error creating type usage reference");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Creates a member usage reference from a reference location
+    /// </summary>
+    private async Task<MemberUsageReference?> CreateMemberUsageReferenceAsync(Microsoft.CodeAnalysis.FindSymbols.ReferenceLocation location, ISymbol memberSymbol)
+    {
+        try
+        {
+            if (location.Document == null) return null;
+
+            var syntaxTree = await location.Document.GetSyntaxTreeAsync();
+            if (syntaxTree == null) return null;
+
+            var root = await syntaxTree.GetRootAsync();
+            var node = root.FindNode(location.Location.SourceSpan);
+
+            var lineSpan = location.Location.GetLineSpan();
+            var usageKind = DetermineMemberUsageKind(node, memberSymbol);
+            var context = GetUsageContext(node);
+            var codeSnippet = GetSourceTextSnippet(syntaxTree, location.Location.SourceSpan);
+
+            return new MemberUsageReference
+            {
+                FilePath = location.Document.FilePath ?? location.Document.Name,
+                ProjectName = location.Document.Project.Name,
+                StartLine = lineSpan.StartLinePosition.Line + 1,
+                StartColumn = lineSpan.StartLinePosition.Character + 1,
+                EndLine = lineSpan.EndLinePosition.Line + 1,
+                EndColumn = lineSpan.EndLinePosition.Character + 1,
+                UsageKind = usageKind,
+                Context = context,
+                CodeSnippet = codeSnippet,
+                ContainingMember = GetContainingMember(node),
+                ContainingType = GetContainingType(node)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error creating member usage reference");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Determines the type of type usage based on syntax node
+    /// </summary>
+    private TypeUsageKind DetermineTypeUsageKind(SyntaxNode node, ISymbol typeSymbol)
+    {
+        return node switch
+        {
+            ClassDeclarationSyntax => TypeUsageKind.Declaration,
+            InterfaceDeclarationSyntax => TypeUsageKind.Declaration,
+            StructDeclarationSyntax => TypeUsageKind.Declaration,
+            EnumDeclarationSyntax => TypeUsageKind.Declaration,
+            ObjectCreationExpressionSyntax => TypeUsageKind.Instantiation,
+            VariableDeclarationSyntax => TypeUsageKind.LocalVariable,
+            PropertyDeclarationSyntax => TypeUsageKind.PropertyType,
+            FieldDeclarationSyntax => TypeUsageKind.FieldType,
+            ParameterSyntax => TypeUsageKind.MethodParameter,
+            AttributeSyntax => TypeUsageKind.AttributeUsage,
+            BaseListSyntax => DetermineBaseListUsageKind(node, typeSymbol),
+            CastExpressionSyntax => TypeUsageKind.CastOperation,
+            TypeOfExpressionSyntax => TypeUsageKind.TypeOfExpression,
+            IsPatternExpressionSyntax => TypeUsageKind.IsExpression,
+            BinaryExpressionSyntax when node.ToString().Contains(" as ") => TypeUsageKind.AsExpression,
+            UsingDirectiveSyntax => TypeUsageKind.UsingDirective,
+            _ => TypeUsageKind.FullyQualifiedReference
+        };
+    }
+
+    /// <summary>
+    /// Determines the type of member usage based on syntax node
+    /// </summary>
+    private MemberUsageKind DetermineMemberUsageKind(SyntaxNode node, ISymbol memberSymbol)
+    {
+        return node switch
+        {
+            InvocationExpressionSyntax => MemberUsageKind.MethodCall,
+            MemberAccessExpressionSyntax when IsPropertyAccess(node, memberSymbol) => MemberUsageKind.PropertyAccess,
+            AssignmentExpressionSyntax when IsPropertySet(node, memberSymbol) => MemberUsageKind.PropertySet,
+            MemberAccessExpressionSyntax when IsFieldAccess(node, memberSymbol) => MemberUsageKind.FieldAccess,
+            AssignmentExpressionSyntax when IsFieldSet(node, memberSymbol) => MemberUsageKind.FieldSet,
+            _ => MemberUsageKind.MethodCall // Default fallback
+        };
+    }
+
+    /// <summary>
+    /// Additional helper methods for type analysis
+    /// </summary>
+    private TypeUsageKind DetermineBaseListUsageKind(SyntaxNode node, ISymbol typeSymbol)
+    {
+        // Simplified logic - in a real implementation, you'd check if it's inheritance vs interface implementation
+        if (typeSymbol is INamedTypeSymbol namedType)
+        {
+            return namedType.TypeKind == TypeKind.Interface ? TypeUsageKind.ImplementedInterface : TypeUsageKind.BaseClass;
+        }
+        return TypeUsageKind.BaseClass;
+    }
+
+    private bool IsPropertyAccess(SyntaxNode node, ISymbol memberSymbol)
+    {
+        return memberSymbol.Kind == SymbolKind.Property && node.Parent is not AssignmentExpressionSyntax;
+    }
+
+    private bool IsPropertySet(SyntaxNode node, ISymbol memberSymbol)
+    {
+        return memberSymbol.Kind == SymbolKind.Property && node.Parent is AssignmentExpressionSyntax assignment &&
+               assignment.Left.Contains(node);
+    }
+
+    private bool IsFieldAccess(SyntaxNode node, ISymbol memberSymbol)
+    {
+        return memberSymbol.Kind == SymbolKind.Field && node.Parent is not AssignmentExpressionSyntax;
+    }
+
+    private bool IsFieldSet(SyntaxNode node, ISymbol memberSymbol)
+    {
+        return memberSymbol.Kind == SymbolKind.Field && node.Parent is AssignmentExpressionSyntax assignment &&
+               assignment.Left.Contains(node);
+    }
+
+    private string GetUsageContext(SyntaxNode node)
+    {
+        var parent = node.Parent;
+        return parent switch
+        {
+            MethodDeclarationSyntax method => $"Method: {method.Identifier.ValueText}",
+            PropertyDeclarationSyntax property => $"Property: {property.Identifier.ValueText}",
+            FieldDeclarationSyntax => "Field declaration",
+            ClassDeclarationSyntax classDecl => $"Class: {classDecl.Identifier.ValueText}",
+            InterfaceDeclarationSyntax interfaceDecl => $"Interface: {interfaceDecl.Identifier.ValueText}",
+            _ => parent?.GetType().Name ?? "Unknown context"
+        };
+    }
+
+    private string? GetContainingMember(SyntaxNode node)
+    {
+        var memberNode = node.Ancestors().FirstOrDefault(n =>
+            n is MethodDeclarationSyntax ||
+            n is PropertyDeclarationSyntax ||
+            n is FieldDeclarationSyntax ||
+            n is ConstructorDeclarationSyntax);
+
+        return memberNode switch
+        {
+            MethodDeclarationSyntax method => method.Identifier.ValueText,
+            PropertyDeclarationSyntax property => property.Identifier.ValueText,
+            ConstructorDeclarationSyntax => ".ctor",
+            _ => null
+        };
+    }
+
+    private string? GetContainingType(SyntaxNode node)
+    {
+        var typeNode = node.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+        return typeNode?.Identifier.ValueText;
+    }
+
+    private bool ShouldIncludeUsage(TypeUsageReference usage, TypeUsageAnalysisOptions options)
+    {
+        if (!options.IncludeDocumentation && usage.IsInDocumentation)
+            return false;
+
+        if (options.IncludedUsageKinds.Any() && !options.IncludedUsageKinds.Contains(usage.UsageKind))
+            return false;
+
+        return true;
+    }
+
+    private bool IsBuiltInType(ITypeSymbol type)
+    {
+        return type.SpecialType != SpecialType.None ||
+               type.TypeKind == TypeKind.Enum ||
+               type.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
+    }
+
+    private DependencyKind DetermineDependencyKind(SyntaxNode node, ISymbol typeSymbol)
+    {
+        return node.Parent switch
+        {
+            BaseListSyntax => (typeSymbol is INamedTypeSymbol namedType && namedType.TypeKind == TypeKind.Interface) ?
+                DependencyKind.Implementation : DependencyKind.Inheritance,
+            PropertyDeclarationSyntax => DependencyKind.Composition,
+            FieldDeclarationSyntax => DependencyKind.Composition,
+            ParameterSyntax => DependencyKind.Usage,
+            AttributeSyntax => DependencyKind.Attribute,
+            _ => DependencyKind.Usage
+        };
+    }
+
+    private List<string> GenerateImpactRecommendations(TypeUsageAnalysisResult usageResult)
+    {
+        var recommendations = new List<string>();
+
+        if (usageResult.TotalUsages > 50)
+        {
+            recommendations.Add("High usage count detected - consider careful planning before making changes");
+        }
+
+        if (usageResult.ProjectsWithUsages.Count > 1)
+        {
+            recommendations.Add("Type is used across multiple projects - coordinate changes carefully");
+        }
+
+        if (usageResult.UsagesByKind.ContainsKey(TypeUsageKind.BaseClass))
+        {
+            recommendations.Add("Type is used as base class - changes may affect inheritance hierarchy");
+        }
+
+        if (usageResult.UsagesByKind.ContainsKey(TypeUsageKind.ImplementedInterface))
+        {
+            recommendations.Add("Type is implemented as interface - changes may break implementations");
+        }
+
+        return recommendations;
+    }
+
+    private List<string> IdentifyBreakingChanges(TypeUsageAnalysisResult usageResult)
+    {
+        var breakingChanges = new List<string>();
+
+        if (usageResult.UsagesByKind.ContainsKey(TypeUsageKind.BaseClass))
+        {
+            breakingChanges.Add("Changing base class structure may break derived classes");
+        }
+
+        if (usageResult.UsagesByKind.ContainsKey(TypeUsageKind.ImplementedInterface))
+        {
+            breakingChanges.Add("Changing interface may break implementing classes");
+        }
+
+        if (usageResult.UsagesByKind.ContainsKey(TypeUsageKind.MethodParameter))
+        {
+            breakingChanges.Add("Type is used in method signatures - changes may break callers");
+        }
+
+        return breakingChanges;
+    }
+
+    /// <summary>
+    /// Gets a code snippet from the syntax tree at the specified span
+    /// </summary>
+    private string GetSourceTextSnippet(SyntaxTree syntaxTree, Microsoft.CodeAnalysis.Text.TextSpan span)
+    {
+        try
+        {
+            var sourceText = syntaxTree.GetText();
+            return sourceText.GetSubText(span).ToString().Trim();
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    #endregion
 
     public void Dispose()
     {

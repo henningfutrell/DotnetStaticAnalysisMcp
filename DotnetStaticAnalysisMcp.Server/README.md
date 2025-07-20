@@ -1,4 +1,4 @@
-# .NET Static Analysis MCP Server
+# .NET Static Analysis DotnetStaticAnalysisMcp.Server
 
 This MCP (Model Context Protocol) server provides comprehensive static analysis capabilities for .NET solutions using Microsoft's Roslyn compiler platform. It allows AI agents to analyze .NET codebases without needing to build them, providing detailed information about compilation errors, warnings, project structure, and code symbols.
 
@@ -15,7 +15,7 @@ This MCP (Model Context Protocol) server provides comprehensive static analysis 
 
 1. **Build the server:**
    ```bash
-   dotnet build MCP.Server
+   dotnet build DotnetStaticAnalysisMcp.Server
    ```
 
 2. **Configure VS Code (or other MCP client):**
@@ -31,7 +31,7 @@ This MCP (Model Context Protocol) server provides comprehensive static analysis 
          "args": [
            "run",
            "--project",
-           "/full/path/to/MCP.Server/MCP.Server.csproj"
+           "/full/path/to/DotnetStaticAnalysisMcp.Server/DotnetStaticAnalysisMcp.Server.csproj"
          ]
        }
      }

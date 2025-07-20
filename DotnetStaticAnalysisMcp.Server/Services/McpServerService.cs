@@ -563,7 +563,7 @@ public class DotNetAnalysisTools
                 {
                     build_timestamp = buildTime,
                     current_time = DateTime.UtcNow,
-                    version_marker = "CSHARP_LANGUAGE_SUPPORT_20241220_1445", // Update this to verify changes
+                    version_marker = "TYPE_ANALYSIS_REFACTORING_20241220_1500", // Update this to verify changes
                     assembly_location = assembly.Location
                 }
             };
@@ -619,6 +619,308 @@ public class DotNetAnalysisTools
             _ => "General impact"
         };
     }
+
+    #region Type Analysis MCP Tools
+
+    /// <summary>
+    /// Find all usages of a specific type across the solution
+    /// </summary>
+    [McpServerTool][Description("Find all references to a specific type (class, interface, struct, enum) across the entire solution")]
+    public static async Task<string> FindTypeUsages(
+        [Description("The name of the type to find (e.g., 'Customer' or 'MyNamespace.Customer')")] string typeName,
+        [Description("Include XML documentation references")] bool includeDocumentation = true,
+        [Description("Maximum number of results to return")] int maxResults = 100)
+    {
+        try
+        {
+            var analysisService = ServiceProvider?.GetService<RoslynAnalysisService>();
+            if (analysisService == null)
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Analysis service not available" });
+            }
+
+            var options = new Models.TypeUsageAnalysisOptions
+            {
+                IncludeDocumentation = includeDocumentation,
+                MaxResults = maxResults
+            };
+
+            var result = await analysisService.FindTypeUsagesAsync(typeName, options);
+            return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    /// <summary>
+    /// Find all usages of a specific type member (method, property, field, event)
+    /// </summary>
+    [McpServerTool][Description("Find all references to specific type members (methods, properties, fields, events)")]
+    public static async Task<string> FindMemberUsages(
+        [Description("The containing type name")] string typeName,
+        [Description("The member name to find")] string memberName)
+    {
+        try
+        {
+            var analysisService = ServiceProvider?.GetService<RoslynAnalysisService>();
+            if (analysisService == null)
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Analysis service not available" });
+            }
+
+            var result = await analysisService.FindMemberUsagesAsync(typeName, memberName);
+            return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    /// <summary>
+    /// Find all using statements and fully qualified references to a namespace
+    /// </summary>
+    [McpServerTool][Description("Find all using statements and fully qualified references to a namespace")]
+    public static async Task<string> FindNamespaceUsages(
+        [Description("The namespace to find (e.g., 'System.Collections.Generic')")] string namespaceName)
+    {
+        try
+        {
+            var analysisService = ServiceProvider?.GetService<RoslynAnalysisService>();
+            if (analysisService == null)
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Analysis service not available" });
+            }
+
+            var result = await analysisService.FindNamespaceUsagesAsync(namespaceName);
+            return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    /// <summary>
+    /// Get all types that a specific type depends on
+    /// </summary>
+    [McpServerTool][Description("Get all types that a specific type depends on")]
+    public static async Task<string> GetTypeDependencies(
+        [Description("The type name to analyze")] string typeName)
+    {
+        try
+        {
+            var analysisService = ServiceProvider?.GetService<RoslynAnalysisService>();
+            if (analysisService == null)
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Analysis service not available" });
+            }
+
+            var result = await analysisService.GetTypeDependenciesAsync(typeName);
+            return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    /// <summary>
+    /// Get all types that depend on a specific type
+    /// </summary>
+    [McpServerTool][Description("Get all types that depend on a specific type")]
+    public static async Task<string> GetTypeDependents(
+        [Description("The type name to analyze")] string typeName)
+    {
+        try
+        {
+            var analysisService = ServiceProvider?.GetService<RoslynAnalysisService>();
+            if (analysisService == null)
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Analysis service not available" });
+            }
+
+            var result = await analysisService.GetTypeDependentsAsync(typeName);
+            return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    /// <summary>
+    /// Analyze the potential impact of changing a type
+    /// </summary>
+    [McpServerTool][Description("Analyze the potential impact of changing a type (what would break)")]
+    public static async Task<string> AnalyzeImpactScope(
+        [Description("The type name to analyze")] string typeName)
+    {
+        try
+        {
+            var analysisService = ServiceProvider?.GetService<RoslynAnalysisService>();
+            if (analysisService == null)
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Analysis service not available" });
+            }
+
+            var result = await analysisService.AnalyzeImpactScopeAsync(typeName);
+            return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    /// <summary>
+    /// Check if renaming a type/member would cause conflicts or breaking changes
+    /// </summary>
+    [McpServerTool][Description("Check if renaming a type/member would cause conflicts or breaking changes")]
+    public static async Task<string> ValidateRenameSafety(
+        [Description("Current name of the type")] string currentName,
+        [Description("Proposed new name")] string proposedName)
+    {
+        try
+        {
+            var analysisService = ServiceProvider?.GetService<RoslynAnalysisService>();
+            if (analysisService == null)
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Analysis service not available" });
+            }
+
+            var result = await analysisService.ValidateRenameSafetyAsync(currentName, proposedName);
+            return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    /// <summary>
+    /// Show exactly what files and lines would be affected by a rename operation
+    /// </summary>
+    [McpServerTool][Description("Show exactly what files and lines would be affected by a rename operation")]
+    public static async Task<string> PreviewRenameImpact(
+        [Description("Current name of the type")] string currentName,
+        [Description("Proposed new name")] string proposedName)
+    {
+        try
+        {
+            var analysisService = ServiceProvider?.GetService<RoslynAnalysisService>();
+            if (analysisService == null)
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Analysis service not available" });
+            }
+
+            var result = await analysisService.PreviewRenameImpactAsync(currentName, proposedName);
+            return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    /// <summary>
+    /// Get comprehensive type analysis information including usages, dependencies, and impact
+    /// </summary>
+    [McpServerTool][Description("Get comprehensive type analysis information including usages, dependencies, and impact")]
+    public static async Task<string> GetTypeAnalysisSummary(
+        [Description("The type name to analyze")] string typeName)
+    {
+        try
+        {
+            var analysisService = ServiceProvider?.GetService<RoslynAnalysisService>();
+            if (analysisService == null)
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Analysis service not available" });
+            }
+
+            // Get comprehensive analysis
+            var usagesTask = analysisService.FindTypeUsagesAsync(typeName);
+            var dependenciesTask = analysisService.GetTypeDependenciesAsync(typeName);
+            var dependentsTask = analysisService.GetTypeDependentsAsync(typeName);
+            var impactTask = analysisService.AnalyzeImpactScopeAsync(typeName);
+
+            await Task.WhenAll(usagesTask, dependenciesTask, dependentsTask, impactTask);
+
+            var summary = new
+            {
+                success = true,
+                type_name = typeName,
+                timestamp = DateTime.UtcNow,
+                usages = usagesTask.Result,
+                dependencies = dependenciesTask.Result,
+                dependents = dependentsTask.Result,
+                impact_analysis = impactTask.Result,
+                summary_stats = new
+                {
+                    total_usages = usagesTask.Result.TotalUsages,
+                    projects_affected = usagesTask.Result.ProjectsWithUsages.Count,
+                    total_dependencies = dependenciesTask.Result.TotalDependencies,
+                    total_dependents = dependentsTask.Result.TotalDependents,
+                    impact_scope = impactTask.Result.Scope.ToString()
+                }
+            };
+
+            return JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    #endregion
 }
 
 

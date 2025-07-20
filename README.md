@@ -1,9 +1,12 @@
-# .NET Static Analysis MCP Server
+# .NET Static Analysis DotnetStaticAnalysisMcp.Server
 
 A powerful Model Context Protocol (MCP) server that provides real-time static analysis for .NET solutions. This server integrates with MCP-compatible chat clients to offer comprehensive code analysis, compilation error detection, and project insights directly within your conversation interface.
 
 ## Features
 
+
+
+### Core Analysis Capabilities
 - **🔍 Solution Analysis**: Load and analyze entire .NET solutions with detailed project information
 - **⚠️ Compilation Error Detection**: Identify compilation errors with precise line and column locations
 - **📊 Project Insights**: Get comprehensive project metadata, dependencies, and source file information
@@ -11,6 +14,13 @@ A powerful Model Context Protocol (MCP) server that provides real-time static an
 - **📝 Structured Logging**: Comprehensive logging with JSON format for debugging and monitoring
 - **🔄 Real-time Updates**: Hot reload support during development with `dotnet watch`
 
+### Advanced Type Analysis & Refactoring Support
+- **🔍 Type Usage Discovery**: Find all references to types across the entire solution
+- **🔗 Member Usage Analysis**: Track method, property, field, and event usage
+- **📋 Dependency Analysis**: Understand type dependencies and relationships
+- **🔧 Safe Refactoring Validation**: Check rename safety and preview impacts
+- **⚡ Impact Scope Analysis**: Analyze potential breaking changes before modifications
+- **🎯 Cross-Project Analysis**: Handle references across multiple projects in a solution
 ## Quick Start
 
 ### Prerequisites
@@ -28,7 +38,7 @@ A powerful Model Context Protocol (MCP) server that provides real-time static an
 
 2. **Build the server**:
    ```bash
-   dotnet build MCP.Server
+   dotnet build DotnetStaticAnalysisMcp.Server
    ```
 
 3. **Configure your MCP client** by adding this to your MCP configuration file:
@@ -39,7 +49,7 @@ A powerful Model Context Protocol (MCP) server that provides real-time static an
      "mcpServers": {
        "dotnet-analysis": {
          "command": "dotnet",
-         "args": ["watch", "run", "--project", "/path/to/MCP/MCP.Server"],
+         "args": ["watch", "run", "--project", "/path/to/MCP/DotnetStaticAnalysisMcp.Server"],
          "env": {}
        }
      }
@@ -52,7 +62,7 @@ A powerful Model Context Protocol (MCP) server that provides real-time static an
      "mcpServers": {
        "dotnet-analysis": {
          "command": "dotnet",
-         "args": ["run", "--project", "/path/to/MCP/MCP.Server"],
+         "args": ["run", "--project", "/path/to/MCP/DotnetStaticAnalysisMcp.Server"],
          "env": {}
        }
      }
@@ -118,6 +128,19 @@ Uses the `get_code_suggestions` tool to provide AI-powered code improvements.
 | `get_server_version` | Get server version and build info | None |
 | `get_basic_diagnostics` | Get environment diagnostics | None |
 
+### Type Analysis & Refactoring Tools
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `find_type_usages` | Find all references to a specific type | `typeName`, `includeDocumentation`, `maxResults` |
+| `find_member_usages` | Find all references to type members | `typeName`, `memberName` |
+| `find_namespace_usages` | Find namespace usage and imports | `namespaceName` |
+| `get_type_dependencies` | Get types that a type depends on | `typeName` |
+| `get_type_dependents` | Get types that depend on a type | `typeName` |
+| `analyze_impact_scope` | Analyze potential impact of changes | `typeName` |
+| `validate_rename_safety` | Check if rename would cause conflicts | `currentName`, `proposedName` |
+| `preview_rename_impact` | Preview files affected by rename | `currentName`, `proposedName` |
+| `get_type_analysis_summary` | Complete type analysis report | `typeName` |
+
 ## Configuration Files
 
 ### MCP Client Configuration Locations
@@ -133,7 +156,7 @@ Uses the `get_code_suggestions` tool to provide AI-powered code improvements.
   "mcpServers": {
     "dotnet-analysis": {
       "command": "dotnet",
-      "args": ["watch", "run", "--project", "/home/user/projects/MCP/MCP.Server"],
+      "args": ["watch", "run", "--project", "/home/user/projects/MCP/DotnetStaticAnalysisMcp.Server"],
       "env": {
         "DOTNET_CLI_TELEMETRY_OPTOUT": "1"
       }
@@ -181,7 +204,7 @@ tail -f /tmp/mcp-debug-$(date +%Y%m%d).log
 ### Project Structure
 ```
 MCP/
-├── MCP.Server/              # Main MCP server application
+├── DotnetStaticAnalysisMcp.Server/              # Main MCP server application
 │   ├── Models/              # Data models for analysis results
 │   ├── Services/            # Core analysis and MCP services
 │   └── Program.cs           # Server entry point
@@ -203,7 +226,7 @@ dotnet build
 dotnet test
 
 # Run the server locally
-dotnet run --project MCP.Server
+dotnet run --project DotnetStaticAnalysisMcp.Server
 ```
 
 ### Running Tests
@@ -256,6 +279,26 @@ I'm getting build errors. Can you load my solution and tell me exactly what's wr
 ```
 
 ### Scenario 4: Code Quality Analysis
+
+### Scenario 5: Type Usage Analysis
+```
+Find all usages of the Customer class and analyze its dependencies to understand the impact of potential changes.
+```
+
+### Scenario 6: Safe Refactoring
+```
+I want to rename the Order class to PurchaseOrder. Check if this is safe and show me what would be affected.
+```
+
+### Scenario 7: Dependency Analysis
+```
+Show me all the types that depend on the ICustomer interface and what types it depends on.
+```
+
+### Scenario 8: Member Usage Tracking
+```
+Find all places where the AddOrder method is called and analyze the impact of changing its signature.
+```
 ```
 Give me code suggestions for style and best practices improvements with high priority items first.
 ```
@@ -270,7 +313,7 @@ You can customize the server behavior with environment variables:
   "mcpServers": {
     "dotnet-analysis": {
       "command": "dotnet",
-      "args": ["run", "--project", "/path/to/MCP/MCP.Server"],
+      "args": ["run", "--project", "/path/to/MCP/DotnetStaticAnalysisMcp.Server"],
       "env": {
         "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
         "MSBUILD_EXE_PATH": "/custom/path/to/msbuild",
@@ -357,3 +400,397 @@ When errors occur, responses include detailed error information:
 - Powered by [MSBuild](https://github.com/dotnet/msbuild) for project loading
 - Logging provided by [Serilog](https://serilog.net/)
 - Testing framework: [xUnit](https://xunit.net/)
+## Advanced Type Analysis & Refactoring Support
+
+The .NET Static Analysis DotnetStaticAnalysisMcp.Server now includes comprehensive type usage analysis and refactoring support, enabling AI agents to safely perform complex code transformations with full understanding of codebase structure and dependencies.
+
+### 🔍 Type Usage Discovery Tools
+
+#### `find_type_usages` - Find All Type References
+Find all references to a specific type (class, interface, struct, enum) across the entire solution.
+
+**Parameters:**
+- `typeName` (string): The name of the type to find (e.g., 'Customer' or 'MyNamespace.Customer')
+- `includeDocumentation` (bool): Include XML documentation references (default: true)
+- `maxResults` (int): Maximum number of results to return (default: 100)
+
+**Usage Types Detected:**
+- Variable declarations and instantiations
+- Method parameters and return types
+- Generic type arguments
+- Base classes and implemented interfaces
+- Attribute usage
+- Cast operations and type checks
+- Using directives
+- XML documentation references
+
+**Example:**
+```bash
+find_type_usages typeName="Customer" includeDocumentation=true maxResults=50
+```
+
+#### `find_member_usages` - Find Member References
+Find all references to specific type members (methods, properties, fields, events).
+
+**Parameters:**
+- `typeName` (string): The containing type name
+- `memberName` (string): The member name to find
+
+**Member Usage Types:**
+- Method calls and property access
+- Field access and assignments
+- Event subscriptions/unsubscriptions
+- Method overrides and implementations
+
+**Example:**
+```bash
+find_member_usages typeName="Customer" memberName="AddOrder"
+```
+
+#### `find_namespace_usages` - Find Namespace References
+Find all using statements and fully qualified references to a namespace.
+
+**Parameters:**
+- `namespaceName` (string): The namespace to find (e.g., 'System.Collections.Generic')
+
+**Example:**
+```bash
+find_namespace_usages namespaceName="MyProject.Models"
+```
+
+### 📊 Dependency Analysis Tools
+
+#### `get_type_dependencies` - Analyze Type Dependencies
+Get all types that a specific type depends on.
+
+**Dependency Types Analyzed:**
+- Inheritance relationships (base classes)
+- Interface implementations
+- Composition relationships (properties, fields)
+- Method parameter dependencies
+- Generic constraints
+- Attribute dependencies
+
+**Example:**
+```bash
+get_type_dependencies typeName="Customer"
+```
+
+#### `get_type_dependents` - Reverse Dependency Analysis
+Get all types that depend on a specific type.
+
+**Example:**
+```bash
+get_type_dependents typeName="Customer"
+```
+
+### ⚡ Impact Analysis Tools
+
+#### `analyze_impact_scope` - Analyze Change Impact
+Analyze the potential impact of changing a type (what would break).
+
+**Impact Scopes:**
+- `None`: No usages found
+- `SameFile`: Impact limited to single file
+- `SameProject`: Impact within one project
+- `MultipleProjects`: Impact across multiple projects
+- `EntireSolution`: Solution-wide impact
+
+**Provides:**
+- List of affected projects
+- Potential breaking changes
+- Recommendations for safe changes
+
+**Example:**
+```bash
+analyze_impact_scope typeName="Customer"
+```
+
+### 🔧 Safe Refactoring Validation Tools
+
+#### `validate_rename_safety` - Check Rename Safety
+Check if renaming a type/member would cause conflicts or breaking changes.
+
+**Parameters:**
+- `currentName` (string): Current name of the type
+- `proposedName` (string): Proposed new name
+
+**Validates:**
+- Name conflicts with existing types
+- Accessibility constraints
+- Cross-project impacts
+
+**Example:**
+```bash
+validate_rename_safety currentName="Customer" proposedName="CustomerEntity"
+```
+
+#### `preview_rename_impact` - Preview Rename Changes
+Show exactly what files and lines would be affected by a rename operation.
+
+**Provides:**
+- Precise file locations (path, line, column)
+- Code snippets showing context
+- Project-by-project breakdown
+
+**Example:**
+```bash
+preview_rename_impact currentName="Customer" proposedName="CustomerEntity"
+```
+
+### 🎯 Comprehensive Analysis Tool
+
+#### `get_type_analysis_summary` - Complete Type Analysis
+Get comprehensive type analysis information including usages, dependencies, and impact in a single call.
+
+**Includes:**
+- All type usages across the solution
+- Dependency analysis (both directions)
+- Impact scope assessment
+- Summary statistics
+
+**Example:**
+```bash
+get_type_analysis_summary typeName="Customer"
+```
+
+## Type Analysis Response Format
+
+### TypeUsageReference
+```json
+{
+  "filePath": "/path/to/file.cs",
+  "projectName": "MyProject",
+  "startLine": 15,
+  "startColumn": 8,
+  "endLine": 15,
+  "endColumn": 16,
+  "usageKind": "Declaration",
+  "context": "Class: CustomerService",
+  "codeSnippet": "Customer customer = new Customer();",
+  "containingMember": "CreateCustomer",
+  "containingType": "CustomerService"
+}
+```
+
+### Usage Kinds
+- `Declaration`: Type declaration (class, interface, etc.)
+- `Instantiation`: Object creation (`new Customer()`)
+- `MethodParameter`: Method parameter type
+- `MethodReturnType`: Method return type
+- `PropertyType`: Property type declaration
+- `FieldType`: Field type declaration
+- `GenericTypeArgument`: Generic type parameter
+- `BaseClass`: Inheritance relationship
+- `ImplementedInterface`: Interface implementation
+- `AttributeUsage`: Attribute application
+- `CastOperation`: Type casting
+- `TypeOfExpression`: `typeof(Customer)`
+- `IsExpression`: `obj is Customer`
+- `AsExpression`: `obj as Customer`
+- `UsingDirective`: `using MyNamespace;`
+- `XmlDocumentation`: XML doc references
+
+### Dependency Analysis Response
+```json
+{
+  "success": true,
+  "analyzedType": "Customer",
+  "dependencies": [
+    {
+      "dependentType": "Customer",
+      "dependencyType": "Address",
+      "kind": "Composition",
+      "context": "Property: Address"
+    }
+  ],
+  "totalDependencies": 5,
+  "totalDependents": 3
+}
+```
+
+## Advanced Usage Examples
+
+### Scenario 1: Safe Type Renaming
+```bash
+# 1. Check if rename is safe
+validate_rename_safety currentName="Customer" proposedName="ClientEntity"
+
+# 2. Preview the impact
+preview_rename_impact currentName="Customer" proposedName="ClientEntity"
+
+# 3. Analyze full scope
+analyze_impact_scope typeName="Customer"
+```
+
+### Scenario 2: Understanding Type Dependencies
+```bash
+# 1. Get complete analysis
+get_type_analysis_summary typeName="Order"
+
+# 2. Find what depends on Order
+get_type_dependents typeName="Order"
+
+# 3. Find what Order depends on
+get_type_dependencies typeName="Order"
+```
+
+### Scenario 3: Refactoring Preparation
+```bash
+# 1. Find all usages of a method
+find_member_usages typeName="Customer" memberName="CalculateTotal"
+
+# 2. Analyze impact of changing the method
+analyze_impact_scope typeName="Customer"
+
+# 3. Check namespace usage
+find_namespace_usages namespaceName="MyProject.Services"
+```
+
+## Technical Implementation
+
+### Roslyn Integration
+- Uses Microsoft.CodeAnalysis for semantic analysis
+- Leverages SymbolFinder for accurate reference detection
+- Supports cross-project analysis within solutions
+- Handles generic types, nested types, and partial classes
+
+### Performance Optimizations
+- Efficient symbol lookup and caching
+- Configurable result limits
+- Parallel analysis across projects
+- Memory-efficient reference tracking
+
+### Error Handling
+- Graceful handling of missing types
+- Clear error messages for invalid operations
+- Robust handling of partially compiled solutions
+- Comprehensive logging for debugging
+## Type Analysis Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "MCP Client (AI Agent)"
+        A[AI Agent Request]
+    end
+    
+    subgraph "DotnetStaticAnalysisMcp.Server"
+        B[MCP Tools Layer]
+        C[RoslynAnalysisService]
+        D[Type Analysis Engine]
+    end
+    
+    subgraph "Analysis Capabilities"
+        E[Type Usage Discovery]
+        F[Member Usage Analysis]
+        G[Dependency Analysis]
+        H[Impact Assessment]
+        I[Refactoring Validation]
+    end
+    
+    subgraph "Roslyn Integration"
+        J[Semantic Model]
+        K[Symbol Finder]
+        L[Syntax Analysis]
+        M[Cross-Project References]
+    end
+    
+    subgraph ".NET Solution"
+        N[Project 1]
+        O[Project 2]
+        P[Project N]
+        Q[Source Files]
+        R[References]
+    end
+    
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    D --> F
+    D --> G
+    D --> H
+    D --> I
+    
+    E --> J
+    F --> K
+    G --> L
+    H --> M
+    I --> J
+    
+    J --> N
+    K --> O
+    L --> P
+    M --> Q
+    J --> R
+```
+
+## Type Usage Analysis Flow
+
+```mermaid
+sequenceDiagram
+    participant AI as AI Agent
+    participant MCP as DotnetStaticAnalysisMcp.Server
+    participant Roslyn as Roslyn Engine
+    participant Solution as .NET Solution
+    
+    AI->>MCP: find_type_usages("Customer")
+    MCP->>Roslyn: FindTypeSymbol("Customer")
+    Roslyn->>Solution: Search across projects
+    Solution-->>Roslyn: Type symbol found
+    Roslyn->>Solution: FindReferencesAsync(symbol)
+    Solution-->>Roslyn: All reference locations
+    Roslyn->>MCP: Analyze usage contexts
+    MCP->>MCP: Categorize usage kinds
+    MCP->>MCP: Generate structured response
+    MCP-->>AI: TypeUsageAnalysisResult
+```
+
+## Dependency Analysis Visualization
+
+```mermaid
+graph LR
+    subgraph "Customer Dependencies"
+        Customer --> ICustomer[ICustomer Interface]
+        Customer --> Address[Address Class]
+        Customer --> Order[Order Collection]
+        Customer --> PropertyChangedEventArgs[PropertyChangedEventArgs]
+    end
+    
+    subgraph "Customer Dependents"
+        CustomerService --> Customer
+        OrderService --> Customer
+        CustomerController --> Customer
+        CustomerValidator --> Customer
+    end
+    
+    subgraph "Usage Types"
+        Customer -.->|Declaration| CD[Class Declaration]
+        Customer -.->|Instantiation| CI[new Customer]
+        Customer -.->|Parameter| CP[Method Parameters]
+        Customer -.->|Return Type| CR[Return Types]
+        Customer -.->|Property| CProp[Property Types]
+        Customer -.->|Inheritance| CInher[Base Classes]
+        Customer -.->|Interface| CInt[Interfaces]
+    end
+```
+
+## Refactoring Safety Analysis
+
+```mermaid
+flowchart TD
+    A[Rename Request: Customer → ClientEntity] --> B{Type Exists?}
+    B -->|Yes| C[❌ Conflict Detected]
+    B -->|No| D[Find All Usages]
+    D --> E[Analyze Usage Contexts]
+    E --> F{Cross-Project Impact?}
+    F -->|Yes| G[⚠️ Multi-Project Impact]
+    F -->|No| H[✅ Safe to Rename]
+    G --> I[Generate Warnings]
+    H --> J[Generate Preview]
+    C --> K[Return Conflicts]
+    I --> L[Return Impact Analysis]
+    J --> L
+    K --> L
+    L --> M[Present to AI Agent]
+```

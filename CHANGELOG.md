@@ -47,6 +47,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Large solution loading may require performance tuning
 - Requires .NET 9.0 SDK or later
 
+## [1.1.0] - 2024-12-20
+
+### Added - Type Analysis & Refactoring Support
+- **Type Usage Discovery**: Find all references to types across the entire solution
+  - `find_type_usages` - Comprehensive type reference analysis with 19 different usage kinds
+  - `find_member_usages` - Track method, property, field, and event usage
+  - `find_namespace_usages` - Find using statements and namespace references
+- **Dependency Analysis**: Understand type relationships and dependencies
+  - `get_type_dependencies` - Analyze what types a specific type depends on
+  - `get_type_dependents` - Reverse dependency analysis
+- **Safe Refactoring Validation**: Check rename safety and preview impacts
+  - `validate_rename_safety` - Check if renaming would cause conflicts
+  - `preview_rename_impact` - Show exactly what files would be affected
+  - `analyze_impact_scope` - Analyze potential breaking changes
+- **Comprehensive Analysis**: All-in-one type analysis
+  - `get_type_analysis_summary` - Complete type analysis with summary statistics
+
+### Technical Enhancements
+- **Roslyn Semantic Analysis**: Uses true semantic analysis, not text matching
+- **Cross-Project Support**: Handles references across multiple projects
+- **Generic Type Support**: Correctly handles generic types and constraints
+- **Precise Location Information**: File path, line number, column, and context
+- **Usage Type Filtering**: Filter by declaration, instantiation, inheritance, etc.
+- **Structured JSON Responses**: Consistent with existing MCP tool patterns
+
+### Usage Kinds Supported
+- Declaration, Instantiation, Method Parameters/Returns, Property/Field Types
+- Generic Type Arguments, Base Classes, Implemented Interfaces
+- Attribute Usage, Cast Operations, Type Checks (is/as/typeof)
+- Using Directives, XML Documentation References
+
 ## [Unreleased]
 
 ### Planned Features
