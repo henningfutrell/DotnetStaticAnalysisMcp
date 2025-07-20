@@ -1,13 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# 
+#
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCP.Tests", "MCP.Tests\MCP.Tests.csproj", "{441EDB85-A55A-41F7-A6CD-363D0BB48B1F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCP.Server", "MCP.Server\MCP.Server.csproj", "{4E7E629E-8DB5-45EC-B038-6F3878B43452}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCP.IntegrationTests", "MCP.IntegrationTests\MCP.IntegrationTests.csproj", "{149BC56A-AA25-4C7B-A9F6-091DBCD378E3}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCP.TestProject", "MCP.TestProject\MCP.TestProject.csproj", "{7DCFD309-3527-4470-A840-046E8B78E631}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,9 +25,5 @@ Global
 		{149BC56A-AA25-4C7B-A9F6-091DBCD378E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{149BC56A-AA25-4C7B-A9F6-091DBCD378E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{149BC56A-AA25-4C7B-A9F6-091DBCD378E3}.Release|Any CPU.Build.0 = Release|Any CPU
-		{7DCFD309-3527-4470-A840-046E8B78E631}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7DCFD309-3527-4470-A840-046E8B78E631}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7DCFD309-3527-4470-A840-046E8B78E631}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7DCFD309-3527-4470-A840-046E8B78E631}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

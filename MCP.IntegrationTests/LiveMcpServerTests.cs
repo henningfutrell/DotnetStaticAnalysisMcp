@@ -10,11 +10,11 @@ namespace MCP.IntegrationTests;
 /// Integration tests that validate the MCP server functionality against real solutions
 /// These tests use the actual RoslynAnalysisService to ensure the production code works correctly
 /// </summary>
-public class LiveMcpServerTests : IDisposable
+public sealed class LiveMcpServerTests : IDisposable
 {
     private readonly ILogger<RoslynAnalysisService> _logger;
     private static bool _msbuildInitialized = false;
-    private static readonly object _lock = new object();
+    private static readonly object _lock = new();
 
     public LiveMcpServerTests()
     {
