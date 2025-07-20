@@ -112,3 +112,5 @@ node_modules/
 # Backup files
 *.bak
 *.backup
+
+*.runsettings

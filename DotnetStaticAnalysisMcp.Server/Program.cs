@@ -79,6 +79,7 @@ internal class Program
         // Register services
         builder.Services.AddSingleton<TelemetryService>();
         builder.Services.AddSingleton<RoslynAnalysisService>();
+        builder.Services.AddSingleton<CodeCoverageService>();
 
         // Configure MCP server
         builder.Services
